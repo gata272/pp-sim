@@ -78,6 +78,33 @@ body {
     gap: 15px;
 }
 
+/* モード切り替えボタンの配置 */
+#mode-controls {
+    text-align: right;
+    margin-bottom: 5px;
+}
+#mode-toggle-button {
+    padding: 5px 10px;
+    background-color: #6a0dad; /* 紫色 */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+}
+#mode-toggle-button:hover {
+    background-color: #4b0082;
+}
+
+
+/* スコア/CHAIN/NEXTを表示するコンテナ */
+#play-mode-info {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
 .info-box {
     padding: 10px;
     border: 1px solid #444; 
@@ -96,6 +123,86 @@ body {
     font-size: 1.8em;
     font-weight: bold;
     color: #e63946;
+}
+
+/* --- エディットモードのスタイル --- */
+
+#edit-mode-info {
+    /* JSで display: flex に切り替えられる */
+    flex-direction: column;
+    gap: 15px;
+}
+
+.edit-section h2 {
+    font-size: 1em;
+    margin-bottom: 8px;
+}
+
+/* パレットコンテナ */
+#color-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    justify-content: center;
+}
+
+.palette-color {
+    width: 35px; 
+    height: 35px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.1s, transform 0.1s;
+    border: 2px solid transparent; 
+}
+
+.palette-color.selected {
+    border-color: #e63946; /* 選択中の色をハイライト */
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* ぷよ-0 (空) のパレット */
+.puyo-0.palette-color {
+    border-radius: 5px; 
+    background-color: #333;
+    border: 2px dashed #666; 
+    background-image: none; /* グリッド表示を無効化 */
+}
+
+/* ネクスト設定エリア */
+#edit-next-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.edit-next-slot {
+    display: flex;
+    width: 70px; 
+    height: 35px; 
+    border: 2px dashed #999;
+    background-color: #1a1a1a;
+    justify-content: space-around;
+    align-items: center;
+    padding: 2px;
+}
+
+.edit-next-slot .puyo {
+    width: 30px;
+    height: 30px;
+    border: 2px solid #000; 
+}
+
+#apply-next-button {
+    margin-top: 10px;
+    padding: 8px 15px;
+    background-color: #4CAF50; /* 緑 */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
 /* 操作説明 */
@@ -137,34 +244,29 @@ body {
 }
 
 .mobile-btn {
-    /* 正方形のサイズ */
     width: 65px; 
     height: 65px; 
     padding: 0;
-    
-    /* 【統一】フォントサイズを揃える (矢印や文字をこのサイズで表示) */
     font-size: 1.5em; 
     font-weight: bold;
     color: white;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    background-color: #457b9d; /* 青系のコントロールカラーに統一 */
+    background-color: #457b9d; 
     transition: background-color 0.1s;
     touch-action: manipulation;
-    
     flex-shrink: 0; 
     flex-grow: 1; 
-    line-height: 1; /* 垂直方向の調整 */
+    line-height: 1; 
 }
 
 .mobile-btn:active {
     background-color: #1d3557;
 }
 
-/* ハードドロップボタン（色を統一、サイズは.mobile-btnに依存） */
 .drop-btn {
-    background-color: #457b9d; /* 他のボタンと色を揃える */
+    background-color: #457b9d; 
 }
 
 .drop-btn:active {
@@ -181,7 +283,8 @@ body {
         margin: 0 auto;
     }
 
-    #info-panel {
+    /* プレイモード時: スコアとNEXTを横並びにする */
+    #play-mode-info {
         width: 100%;
         flex-direction: row;
         justify-content: space-around;
@@ -191,12 +294,21 @@ body {
     .info-box {
         flex-basis: 30%;
     }
+    
+    /* エディットモード時: 情報を縦並びにする */
+    #edit-mode-info {
+        width: 100%;
+        flex-direction: column;
+        align-items: center;
+        padding-top: 10px;
+    }
+    .edit-section {
+        width: 100%;
+    }
 
     #controls-panel {
-        display: none; /* キーボード操作説明を非表示にする */
+        display: none; 
     }
-
-    #mobile-controls {
-        display: flex; /* モバイルボタンを表示 */
-    }
+    
+    /* モバイル操作ボタンの表示制御はJSに移管 */
 }
