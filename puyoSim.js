@@ -29,7 +29,6 @@ const BONUS_TABLE = {
 
 let board = []; 
 let currentPuyo = null; 
-// 修正: 初期化時にランダム値が設定されるため、仮の配列を定義
 let nextPuyoColors = []; 
 let score = 0;
 let chainCount = 0;
@@ -268,7 +267,7 @@ async function runChain() {
         });
     });
 
-    renderBoard(); // 削除後の盤面を描画
+    renderBoard(); // 削除後の盤面を描画 (空きスペースができる)
     updateUI();
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -276,7 +275,7 @@ async function runChain() {
     // ぷよの落下 (データを更新)
     gravity(); 
 
-    // 修正済み: 落下後の盤面を描画し、ちぎり動作を画面に反映させます。
+    // 落下後の盤面を描画し、ちぎり動作を画面に反映させます。
     renderBoard(); 
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -313,8 +312,7 @@ function calculateScore(groups, currentChain) {
 
 
 /**
- * ぷよぷよ標準の重力処理（列圧縮）
- * これが「ちぎり」のロジックです。各列のぷよを間に空きがあっても下端まで詰めます。
+ * ぷよぷよ標準の重力処理（列圧縮＝ちぎり）
  */
 function gravity() {
     for (let x = 0; x < WIDTH; x++) {
@@ -348,7 +346,8 @@ function renderBoard() {
     // 落下中のぷよの座標を取得しておく
     const currentPuyoCoords = currentPuyo && gameState === 'playing' ? getPuyoCoords() : [];
 
-    // 修正済み: 配列インデックス y = 11 (可視領域の最上段) から y = 0 (最下段) へ逆順に描画
+    // 配列インデックス y = 11 (可視領域の最上段) から y = 0 (最下段) へ逆順に描画
+    // HEIGHT - 3 は、配列の12段目 (インデックス11) を指します。
     for (let y = HEIGHT - 3; y >= 0; y--) { 
         for (let x = 0; x < WIDTH; x++) {
             const puyoElement = document.createElement('div');
@@ -374,8 +373,6 @@ function renderNextPuyo() {
     const nextElement = document.getElementById('next-puyo');
     nextElement.innerHTML = '';
 
-    // NEXTのぷよを描画
-    // nextPuyoColors[0] が存在しない場合は描画しない (ゲームオーバー時など)
     if (nextPuyoColors.length === 0) return; 
 
     const [c1, c2] = nextPuyoColors[0];
