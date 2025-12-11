@@ -172,7 +172,7 @@ window.toggleMode = function() {
 }
 
 
-// --- エディットモード機能 (前回のコードを維持) ---
+// --- エディットモード機能 ---
 
 function setupEditModeListeners() {
     const palette = document.getElementById('color-palette');
@@ -247,13 +247,14 @@ function getRandomPair() {
 function generateNewPuyo() {
     if (gameState !== 'playing') return;
 
-    // 【不具合修正の確認箇所】ネクストリストから1組取り出し、新しい1組を追加
+    // 【不具合修正】ネクストリストが不足している場合、新しいぷよを生成しリストに追加
     if (nextPuyoColors.length < 2) {
-        // ネクストが不足している場合は強制的に生成 (念のため)
         while (nextPuyoColors.length < 2) {
             nextPuyoColors.push(getRandomPair());
         }
     }
+    
+    // ネクストリストから1組取り出し
     const [c1, c2] = nextPuyoColors.shift();
 
     currentPuyo = {
@@ -273,10 +274,10 @@ function generateNewPuyo() {
         return; 
     }
 
+    // 新しい1組をネクストに追加
     nextPuyoColors.push(getRandomPair());
 }
 
-// ... (getPuyoCoords, getCoordsFromState, getGhostCoords, checkCollision, movePuyo, rotatePuyoCW, rotatePuyoCCW, hardDrop, lockPuyo, findConnectedPuyos, runChain, calculateScore, gravity は省略 - 前回のコードと同様)
 function getCoordsFromState(puyoState) {
     const { mainX, mainY, rotation } = puyoState;
     let subX = mainX;
@@ -495,7 +496,7 @@ async function runChain() {
         // 連鎖が検出されなかった場合、連鎖終了。
         gameState = 'playing';
         generateNewPuyo(); 
-        checkMobileControlsVisibility(); // プレイモードに戻ったら操作ボタンを再表示
+        checkMobileControlsVisibility(); 
         renderBoard();
         return;
     }
@@ -513,7 +514,7 @@ async function runChain() {
         });
     });
 
-    renderBoard(); // 削除後の盤面を描画 (消滅演出)
+    renderBoard(); 
     updateUI();
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -571,7 +572,7 @@ function gravity() {
 }
 
 
-// --- 描画とUI更新 (前回のコードを維持) ---
+// --- 描画とUI更新 ---
 
 function renderBoard() {
     const boardElement = document.getElementById('puyo-board');
@@ -612,7 +613,7 @@ function renderBoard() {
     if (gameState === 'playing') {
         renderPlayNextPuyo();
     } else if (gameState === 'editing') {
-        renderEditNextPuyos(); // エディットモードのネクスト設定UIを更新
+        renderEditNextPuyos(); 
     }
 }
 
@@ -634,6 +635,7 @@ function renderPlayNextPuyo() {
     // Next 1: 次に落ちてくるぷよ (nextPuyoColors[0])
     if (nextPuyoColors.length >= 1) {
         const [c1_1, c1_2] = nextPuyoColors[0];
+        // ぷよを横に並べるために2つ追加
         next1Element.appendChild(createPuyo(c1_1)); 
         next1Element.appendChild(createPuyo(c1_2)); 
     }
@@ -641,6 +643,7 @@ function renderPlayNextPuyo() {
     // Next 2: その次に落ちてくるぷよ (nextPuyoColors[1])
     if (nextPuyoColors.length >= 2) {
         const [c2_1, c2_2] = nextPuyoColors[1];
+        // ぷよを横に並べるために2つ追加
         next2Element.appendChild(createPuyo(c2_1)); 
         next2Element.appendChild(createPuyo(c2_2)); 
     }
@@ -658,27 +661,27 @@ function renderEditNextPuyos() {
         
         // 個々のぷよにクリックイベントを設定
         puyo.addEventListener('click', (event) => {
-            event.stopPropagation(); // 親要素（スロット）へのイベント伝播を停止
+            event.stopPropagation(); 
             if (gameState !== 'editing') return;
             
             if (editingNextPuyos.length > listIndex) {
                 // 選択中の色を反映
                 editingNextPuyos[listIndex][puyoIndex] = currentEditColor; 
                 selectPaletteColor(currentEditColor);
-                renderEditNextPuyos(); // 変更後に再描画
+                renderEditNextPuyos(); 
             }
         });
         
         return puyo;
     };
     
-    slots.forEach((slot, listIndex) => { // listIndex は 0 or 1
+    slots.forEach((slot, listIndex) => { 
         if (!slot) return;
         slot.innerHTML = '';
         if (editingNextPuyos[listIndex]) {
             const [c1, c2] = editingNextPuyos[listIndex];
-            slot.appendChild(createPuyo(c1, listIndex, 0)); // puyoIndex 0
-            slot.appendChild(createPuyo(c2, listIndex, 1)); // puyoIndex 1
+            slot.appendChild(createPuyo(c1, listIndex, 0)); 
+            slot.appendChild(createPuyo(c2, listIndex, 1)); 
         }
     });
 }
@@ -692,7 +695,7 @@ function updateUI() {
 // --- 入力処理 ---
 
 function handleInput(event) {
-    if (gameState !== 'playing') return; // プレイモードでない場合は無効
+    if (gameState !== 'playing') return; 
 
     switch (event.key) {
         case 'ArrowLeft':
@@ -710,9 +713,9 @@ function handleInput(event) {
             rotatePuyoCCW(); 
             break;
         case 'ArrowDown':
-            movePuyo(0, -1); // ソフトドロップ
+            movePuyo(0, -1); 
             break;
-        case ' ': // スペースキー
+        case ' ': 
             event.preventDefault(); 
             hardDrop(); 
             break;
