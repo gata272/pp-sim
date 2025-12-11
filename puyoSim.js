@@ -6,7 +6,7 @@ const HEIGHT = 14; // 可視領域12 + 隠し領域2
 
 // ぷよの色定義
 const COLORS = {
-    EMPTY: 0, // 消しゴムとして使用
+    EMPTY: 0,
     RED: 1,
     BLUE: 2,
     GREEN: 3,
@@ -138,7 +138,7 @@ window.toggleMode = function() {
         gameState = 'editing';
         infoPanel.classList.add('edit-mode-active');
         
-        // エディットモード時の表示: 「play」 (エディットモードへの移行ボタン)
+        // エディットモード時の表示: 「play」 (プレイモードへの移行ボタン)
         if (modeToggleButton) modeToggleButton.textContent = 'play';
         
         checkMobileControlsVisibility(); // モバイル操作ボタンを非表示
@@ -216,7 +216,7 @@ function handleBoardClickEditMode(event) {
 
     // 可視領域内に制限 (0 <= y < HEIGHT - 2)
     if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT - 2) { 
-        // ぷよの配置 (currentEditColorが0なら空になる)
+        // ぷよの配置
         board[y][x] = currentEditColor;
         renderBoard(); 
     }
@@ -311,47 +311,27 @@ function getPuyoCoords() {
             { x: subX, y: subY, color: currentPuyo.subColor }];
 }
 
-/**
- * ぷよが最終的に落下する位置（ゴーストぷよの位置）を計算する
- * @returns {Array<{x: number, y: number, color: number}>} ゴーストぷよの座標と色
- */
 function getGhostCoords() {
     if (!currentPuyo || gameState !== 'playing') return [];
 
-    // 現在のぷよの状態を一時的にコピー
     let tempPuyo = { ...currentPuyo };
     
-    // 1. 衝突するまでY座標を下げ続ける
     while (true) {
-        // 次のテスト位置を計算
         let testPuyo = { ...tempPuyo, mainY: tempPuyo.mainY - 1 };
         
-        // テスト位置の座標を取得
         const testCoords = getCoordsFromState(testPuyo);
         
-        // 衝突チェック
-        // currentPuyo自身との衝突を避けるため、チェック時にcurrentPuyoの位置を無視する必要がある
-        // しかし、checkCollisionは単純な座標比較なので、ここではtempPuyoをそのままテストに使用する
         if (checkCollision(testCoords)) {
-            // 衝突した場合、一つ上の位置 (tempPuyo) が最終位置
             const finalCoords = getCoordsFromState(tempPuyo);
             
-            // ゴーストぷよに色情報を持たせる
             finalCoords[0].color = currentPuyo.mainColor;
             finalCoords[1].color = currentPuyo.subColor;
             
             return finalCoords;
         }
         
-        // 衝突しなければ、1マス下に移動
         tempPuyo.mainY -= 1;
-        
-        // 念のため、盤面最下部を大きく超えたらループを抜ける（安全策）
-        if (tempPuyo.mainY < -HEIGHT) break; 
     }
-    
-    // 予測位置が見つからなかった場合は空の配列を返す
-    return [];
 }
 
 
@@ -613,7 +593,7 @@ function renderBoard() {
             // 1. ゴーストぷよがこのセルにあるかチェック (プレイモードのみ)
             const puyoGhost = ghostPuyoCoords.find(p => p.x === x && p.y === y);
             if (puyoGhost) {
-                cellColor = puyoGhost.color; // ゴーストぷよに色を付ける
+                cellColor = puyoGhost.color; 
                 isGhost = true;
             }
 
@@ -686,14 +666,9 @@ function renderEditNextPuyos() {
             
             if (editingNextPuyos.length > listIndex) {
                 // 選択中の色を反映
-                // ただし、ネクストぷよにEMPTY(0)は設定できないようにする
-                if (currentEditColor !== COLORS.EMPTY) { 
-                    editingNextPuyos[listIndex][puyoIndex] = currentEditColor; 
-                    selectPaletteColor(currentEditColor);
-                    renderEditNextPuyos(); 
-                } else {
-                    alert("ネクストぷよに消しゴムは設定できません。");
-                }
+                editingNextPuyos[listIndex][puyoIndex] = currentEditColor; 
+                selectPaletteColor(currentEditColor);
+                renderEditNextPuyos(); 
             }
         });
         
