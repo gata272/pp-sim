@@ -2,11 +2,11 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: center; /* ★修正: 全体を中央に寄せる */
     background-color: #111;
     color: #fff;
     margin: 0;
-    padding: 20px;
+    padding: 20px 10px; /* 左右に少し余白を持たせる */
 }
 
 #wrapper {
@@ -16,9 +16,11 @@ body {
     gap: 20px;
     background-color: #222;
     padding: 20px;
-    border-radius: 0;
-    box-shadow: none;
-    max-width: fit-content; 
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    /* 盤面の幅 + 左右のパディング + 余裕分 */
+    max-width: calc(30px * 6 + 40px + 20px); 
+    width: 100%; /* モバイルで使える幅を広げる */
 }
 
 /* 盤面: 幅を固定 */
@@ -35,6 +37,7 @@ body {
     background-position: -1px -1px; 
     
     width: calc(30px * 6); /* 180px */
+    height: calc(30px * 12); /* 360px */
     margin: 0 auto;
 }
 
@@ -83,11 +86,13 @@ body {
 /* 情報パネル: 盤面と同じ幅で横並び */
 #info-panel {
     display: flex;
-    flex-direction: row; /* 横並び */
+    flex-direction: row; 
     gap: 10px;
-    width: calc(30px * 6 + 10px); 
+    /* 盤面幅に合わせて固定 */
+    width: calc(30px * 6); 
     flex-wrap: wrap; 
-    justify-content: flex-start;
+    justify-content: space-between; /* ★修正: 左右の要素を端に寄せる */
+    margin: 0 auto; /* 中央寄せ */
 }
 
 /* 全情報ボックス共通スタイル */
@@ -95,7 +100,7 @@ body {
     padding: 10px;
     border: 1px solid #444; 
     background-color: #333; 
-    border-radius: 0;
+    border-radius: 5px;
     text-align: center;
 }
 .info-box h2 {
@@ -117,8 +122,8 @@ body {
 .info-group-a {
     flex-direction: column; 
     flex-basis: 45%; 
-    min-width: 90px; 
-    max-width: 120px;
+    min-width: 80px; /* 最小幅を少し小さくして、スコアと横並びを確保しやすくする */
+    max-width: 100px;
     padding: 5px; 
 }
 
@@ -142,6 +147,8 @@ body {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    /* ★修正: 親要素 (info-panel) の中で横並びになるよう幅を確保 */
+    max-width: 100px; 
 }
 #play-stats-info .info-box {
     padding: 5px;
@@ -220,13 +227,15 @@ body {
     width: 100%;
     max-width: 350px; 
     flex-direction: row; 
-    justify-content: space-between; 
+    justify-content: center; /* ★修正: ボタン全体を中央寄せ */
     gap: 5px; 
+    /* デフォルトのフォントサイズを大きくし、ボタンの文字も大きく見せる */
+    font-size: 1.2em; 
 }
 
 .mobile-btn {
-    width: 65px; 
-    height: 65px; 
+    width: 60px; /* サイズを微調整 */
+    height: 60px; /* サイズを微調整 */
     padding: 0;
     font-size: 1.5em; 
     font-weight: bold;
@@ -240,4 +249,19 @@ body {
     flex-shrink: 0; 
     flex-grow: 1; 
     line-height: 1; 
+}
+
+.mobile-btn.drop-btn {
+    background-color: #e63946;
+}
+
+.mobile-btn.rotate-btn {
+    background-color: #8ac926;
+}
+
+/* スマートフォン縦表示 (320px - 480px) でボタンを表示 */
+@media (max-width: 650px) {
+    #mobile-controls {
+        display: flex !important; /* JSでdisplay: none;されるのを防ぐ */
+    }
 }
