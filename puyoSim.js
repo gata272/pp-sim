@@ -61,18 +61,21 @@ function initializeGame() {
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
         
-        // 【最終確認】モバイル操作ボタンのイベントリスナー設定
+        // 【重要：回転機能の反転】モバイル操作ボタンのイベントリスナー設定
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
-        const btnRotateCW = document.getElementById('btn-rotate-cw'); // Aボタン (右回転)
-        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); // Bボタン (左回転)
+        const btnRotateCW = document.getElementById('btn-rotate-cw'); // Aボタン
+        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); // Bボタン
         const btnHardDrop = document.getElementById('btn-hard-drop');
 
         if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
         if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
-        // ソフトドロップボタンはモバイル操作から削除
-        if (btnRotateCW) btnRotateCW.addEventListener('click', rotatePuyoCW);
-        if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCCW);
+        
+        // Aボタン (左回転) -> 反時計回り (CCW) を実行
+        if (btnRotateCW) btnRotateCW.addEventListener('click', rotatePuyoCCW); 
+        // Bボタン (右回転) -> 時計回り (CW) を実行
+        if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCW); 
+        
         if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
         
         document.initializedKeyHandler = true;
@@ -235,7 +238,7 @@ function movePuyo(dx, dy, newRotation) {
 }
 
 /**
- * 時計回り回転 (Aボタン, Zキー)
+ * 時計回り回転 (CW) 
  */
 function rotatePuyoCW() {
     if (gameState !== 'playing' || !currentPuyo) return false;
@@ -252,7 +255,7 @@ function rotatePuyoCW() {
 }
 
 /**
- * 反時計回り回転 (Bボタン, Xキー)
+ * 反時計回り回転 (CCW)
  */
 function rotatePuyoCCW() {
     if (gameState !== 'playing' || !currentPuyo) return false;
@@ -522,11 +525,11 @@ function handleInput(event) {
             break;
         case 'z':
         case 'Z':
-            rotatePuyoCW(); // Zキー: 時計回り回転 (Aボタン)
+            rotatePuyoCW(); // Zキー: 時計回り回転 (PC操作のデフォルト)
             break;
         case 'x':
         case 'X':
-            rotatePuyoCCW(); // Xキー: 反時計回り回転 (Bボタン)
+            rotatePuyoCCW(); // Xキー: 反時計回り回転 (PC操作のデフォルト)
             break;
         case 'ArrowDown':
             movePuyo(0, -1); // ソフトドロップ
