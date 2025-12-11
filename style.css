@@ -38,17 +38,40 @@ body {
     margin: 0 auto;
 }
 
+/* --- 【重要】ぷよの基本スタイルと色の定義 --- */
+
 /* Puyo base style (盤面用) */
 .puyo {
     width: 30px; 
     height: 30px; 
     border-radius: 50%;
-    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3), 0 2px 2px rgba(0,0,0,0.2);
+    /* 影をつけて立体感を出す */
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3), 0 2px 2px rgba(0,0,0,0.2); 
     display: inline-block; 
     box-sizing: border-box;
+    transition: transform 0.1s ease-out; /* 落下時のアニメーション用 */
 }
-/* ... (puyo color styles omitted for brevity, assumed to be defined) ... */
 
+/* Puyo Color Definitions */
+.puyo-1 { background-color: #e63946; } /* 赤 */
+.puyo-2 { background-color: #457b9d; } /* 青 */
+.puyo-3 { background-color: #8ac926; } /* 緑 */
+.puyo-4 { background-color: #fca311; } /* 黄 */
+.puyo-5 { background-color: #ccc; } /* おじゃまぷよ */
+
+/* Empty cell or Ghost Puyo (透明/枠線のみ) */
+.puyo-0 { 
+    background-color: transparent !important;
+    box-shadow: none !important;
+}
+.puyo-ghost {
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: 2px dashed #999;
+    opacity: 0.5;
+}
+
+/* --- 情報パネルのレイアウト --- */
 
 /* 情報パネル: 盤面と同じ幅で横並び */
 #info-panel {
@@ -86,17 +109,16 @@ body {
 /* 1. NEXT (info-group-a): ぷよを縦に並べるコンテナ */
 .info-group-a {
     flex-direction: column; 
-    flex-basis: 35%; /* 約1/3 */
-    min-width: 70px; /* 24px puyo * 2 + gap + padding で十分な幅を確保 */
+    flex-basis: 35%; 
+    min-width: 70px; 
     max-width: 90px;
-    padding: 5px; /* パディングを調整 */
+    padding: 5px; 
 }
 
 /* NEXT内のぷよのサイズと配置 */
 #play-next-info .puyo {
     width: 24px;
     height: 24px;
-    /* NEXT表示用のサイズ調整 */
 }
 #next-puyo-1, #next-puyo-2 {
     display: flex; /* puyo 2つを横並びにする */
@@ -109,7 +131,7 @@ body {
 
 /* 2. SCORE/CHAIN (info-group-b): 右側の領域を占める */
 #play-stats-info {
-    flex-basis: 60%; /* 残りのスペース */
+    flex-basis: 60%; 
     display: flex;
     flex-direction: column;
     gap: 5px;
@@ -121,7 +143,7 @@ body {
 
 /* 3. MODE/RESET (下段) */
 #controls-group-c {
-    width: 100%; /* フル幅 */
+    width: 100%; 
     display: flex;
     justify-content: space-between;
     gap: 10px;
@@ -166,6 +188,23 @@ body {
     width: 100%;
 }
 
+/* --- パレットのスタイル --- */
+#color-palette {
+    display: flex;
+    justify-content: space-around;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+#color-palette .puyo {
+    cursor: pointer;
+    box-shadow: 0 0 5px rgba(0,0,0,0.5);
+    width: 24px; 
+    height: 24px;
+}
+#color-palette .puyo.selected {
+    box-shadow: 0 0 0 3px #fff, 0 0 5px 5px #ffc107; /* 選択中のハイライト */
+}
 
 /* --- モバイル操作ボタンのスタイル --- */
 #mobile-controls {
