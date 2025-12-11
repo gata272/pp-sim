@@ -61,13 +61,14 @@ body {
     transform: scale(0.95); 
 }
 
-/* ネクストぷよの表示 */
-#next-puyo {
+/* ネクストぷよの表示 (2セットに対応) */
+#next-puyo-1, #next-puyo-2 {
     display: grid;
     grid-template-columns: 30px 30px;
     grid-template-rows: 30px;
-    margin-bottom: 20px;
+    margin-bottom: 10px; /* 1つ目と2つ目の間に隙間 */
 }
+
 
 /* 情報パネル */
 #info-panel {
@@ -124,15 +125,9 @@ body {
     background-color: #c9303d;
 }
 
-/* 以前の多段コントロールを非表示に */
-#move-drop-controls, #rotation-controls {
-    display: none; 
-}
-
-
-/* 【最終修正】モバイル操作ボタンの基本スタイル (1段、正方形) */
+/* モバイル操作ボタンの基本スタイル (1段、正方形) */
 #mobile-controls {
-    display: none; /* 初期状態では非表示 (PC優先) */
+    display: none; 
     margin-top: 20px;
     width: 100%;
     max-width: 350px; 
@@ -147,38 +142,33 @@ body {
     height: 65px; 
     padding: 0;
     
-    font-size: 1em;
+    /* 【統一】フォントサイズを揃える */
+    font-size: 1.5em; 
     font-weight: bold;
     color: white;
     border: none;
     border-radius: 8px;
     cursor: pointer;
-    background-color: #457b9d; /* 青系のコントロールカラー */
+    background-color: #457b9d; /* 青系のコントロールカラーに統一 */
     transition: background-color 0.1s;
     touch-action: manipulation;
     
     flex-shrink: 0; 
     flex-grow: 1; 
+    line-height: 1; /* 垂直方向の調整 */
 }
 
 .mobile-btn:active {
     background-color: #1d3557;
 }
 
-/* ハードドロップボタン */
+/* ハードドロップボタン（色を統一、サイズは.mobile-btnに依存） */
 .drop-btn {
-    background-color: #e63946; 
-    font-size: 2em; /* 矢印を大きく表示 */
-    line-height: 1;
+    background-color: #457b9d; /* 他のボタンと色を揃える */
 }
 
 .drop-btn:active {
-    background-color: #c9303d;
-}
-
-/* 回転ボタンのラベル（日本語を含む）が収まるようにフォントサイズを調整 */
-.rotate-btn {
-    font-size: 0.8em; 
+    background-color: #1d3557;
 }
 
 
@@ -211,3 +201,4 @@ body {
         display: flex; /* モバイルボタンを表示 */
     }
 }
+
