@@ -57,9 +57,25 @@ function initializeGame() {
     
     updateUI();
     
-    // キーボードイベントリスナーは一度だけ設定
+    // キーボードイベントリスナーとボタンイベントリスナーは一度だけ設定
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
+        
+        // 【更新】モバイル操作ボタンのイベントリスナー設定
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnSoftDrop = document.getElementById('btn-soft-drop');
+        const btnRotateCW = document.getElementById('btn-rotate-cw');
+        const btnRotateCCW = document.getElementById('btn-rotate-ccw');
+        const btnHardDrop = document.getElementById('btn-hard-drop');
+
+        if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
+        if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
+        if (btnSoftDrop) btnSoftDrop.addEventListener('click', () => movePuyo(0, -1)); // ソフトドロップ
+        if (btnRotateCW) btnRotateCW.addEventListener('click', rotatePuyoCW); // Aボタン
+        if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCCW); // Bボタン
+        if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
+        
         document.initializedKeyHandler = true;
     }
     
@@ -70,7 +86,6 @@ function initializeGame() {
  * 盤面リセット関数
  */
 function resetGame() {
-    // 進行中の連鎖処理を停止し、ゲームを初期状態に戻す
     initializeGame();
     alert('盤面をリセットしました。');
 }
@@ -97,11 +112,10 @@ function generateNewPuyo() {
         mainColor: c1,
         subColor: c2,
         mainX: 2, 
-        mainY: HEIGHT - 3, // 落下開始位置を可視領域の最上段 (配列インデックス11) に設定
+        mainY: HEIGHT - 3, 
         rotation: 0 
     };
     
-    // ぷよ生成時に、開始位置が占有されていないかチェック（ゲームオーバー判定）
     const startingCoords = getPuyoCoords();
     if (checkCollision(startingCoords)) {
         gameState = 'gameover';
@@ -111,7 +125,6 @@ function generateNewPuyo() {
         return; 
     }
 
-    // 新しいネクストぷよを生成し、リストに追加
     nextPuyoColors.push(getRandomPair());
 }
 
@@ -142,44 +155,37 @@ function getPuyoCoords() {
     let subX = mainX;
     let subY = mainY;
 
-    // rotationに基づき、子ぷよの相対座標を計算
-    if (rotation === 0) subY = mainY + 1; // 下
-    if (rotation === 1) subX = mainX - 1; // 左
-    if (rotation === 2) subY = mainY - 1; // 上
-    if (rotation === 3) subX = mainX + 1; // 右
+    if (rotation === 0) subY = mainY + 1; 
+    if (rotation === 1) subX = mainX - 1; 
+    if (rotation === 2) subY = mainY - 1; 
+    if (rotation === 3) subX = mainX + 1; 
 
     return [{ x: mainX, y: mainY, color: currentPuyo.mainColor },
             { x: subX, y: subY, color: currentPuyo.subColor }];
 }
 
 /**
- * 【新規】ゴーストぷよの落下地点を計算する関数
+ * ゴーストぷよの落下地点を計算する関数
  */
 function getGhostCoords() {
     if (!currentPuyo || gameState !== 'playing') return [];
 
     let tempPuyo = { ...currentPuyo };
     
-    // 衝突するまで下に移動をシミュレート
     while (true) {
         let testPuyo = { ...tempPuyo, mainY: tempPuyo.mainY - 1 };
         
         const testCoords = getCoordsFromState(testPuyo);
         
         if (checkCollision(testCoords)) {
-            // 1段下に衝突が検出されたため、現在の tempPuyo の位置が落下地点
-            
-            // 落下地点の座標を取得
             const finalCoords = getCoordsFromState(tempPuyo);
             
-            // 色を付与して返す
             finalCoords[0].color = currentPuyo.mainColor;
             finalCoords[1].color = currentPuyo.subColor;
             
             return finalCoords;
         }
         
-        // 衝突がなければ下に移動
         tempPuyo.mainY -= 1;
     }
 }
@@ -187,10 +193,8 @@ function getGhostCoords() {
 
 function checkCollision(coords) {
     for (const puyo of coords) {
-        // 画面外チェック (横, 下)
         if (puyo.x < 0 || puyo.x >= WIDTH || puyo.y < 0) return true;
 
-        // 既にぷよがある場所との衝突チェック
         if (puyo.y < HEIGHT && puyo.y >= 0 && board[puyo.y][puyo.x] !== COLORS.EMPTY) {
             return true;
         }
@@ -231,20 +235,40 @@ function movePuyo(dx, dy, newRotation) {
     return false;
 }
 
-function rotatePuyo() {
+/**
+ * 【更新】時計回り回転 (Aボタン, Zキー)
+ */
+function rotatePuyoCW() {
     if (gameState !== 'playing' || !currentPuyo) return false;
 
-    for (let i = 0; i < 4; i++) {
-        const newRotation = (currentPuyo.rotation + 1) % 4;
+    // 時計回り: +1
+    const newRotation = (currentPuyo.rotation + 1) % 4;
         
-        // 回転試行
-        if (movePuyo(0, 0, newRotation)) return true; 
-        if (movePuyo(1, 0, newRotation)) return true; 
-        if (movePuyo(-1, 0, newRotation)) return true; 
-        
-        return false;
-    }
+    // 回転試行 (ワイルドローテーションは未実装)
+    if (movePuyo(0, 0, newRotation)) return true; 
+    if (movePuyo(1, 0, newRotation)) return true; 
+    if (movePuyo(-1, 0, newRotation)) return true; 
+    
+    return false;
 }
+
+/**
+ * 【新規】反時計回り回転 (Bボタン, Xキー)
+ */
+function rotatePuyoCCW() {
+    if (gameState !== 'playing' || !currentPuyo) return false;
+
+    // 反時計回り: -1 (+4 は負の値を正しく扱うため)
+    const newRotation = (currentPuyo.rotation - 1 + 4) % 4;
+        
+    // 回転試行 (ワイルドローテーションは未実装)
+    if (movePuyo(0, 0, newRotation)) return true; 
+    if (movePuyo(1, 0, newRotation)) return true; 
+    if (movePuyo(-1, 0, newRotation)) return true; 
+    
+    return false;
+}
+
 
 function hardDrop() {
     if (gameState !== 'playing' || !currentPuyo) return;
@@ -262,7 +286,6 @@ function lockPuyo() {
     let isGameOver = false;
 
     for (const puyo of coords) {
-        // ぷよが隠し領域(12段目以上)に固定されたらゲームオーバー
         if (puyo.y >= HEIGHT - 2) { 
             isGameOver = true;
             break;
@@ -284,7 +307,6 @@ function lockPuyo() {
     gameState = 'chaining';
     chainCount = 0;
     
-    // ぷよ固定後、連鎖/落下処理を開始
     runChain();
 }
 
@@ -333,7 +355,7 @@ function findConnectedPuyos() {
  */
 async function runChain() {
     
-    // フェーズ1: 重力処理 (ちぎりを含む)。配置後、および連鎖後の落下を処理する。
+    // フェーズ1: 重力処理 (ちぎりを含む)。
     gravity(); 
     renderBoard(); 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -344,7 +366,7 @@ async function runChain() {
     if (groups.length === 0) {
         // 連鎖が検出されなかった場合、連鎖終了。
         gameState = 'playing';
-        generateNewPuyo(); // 次のぷよを生成
+        generateNewPuyo(); 
         renderBoard();
         return;
     }
@@ -430,13 +452,9 @@ function renderBoard() {
     const boardElement = document.getElementById('puyo-board');
     boardElement.innerHTML = '';
     
-    // 落下中のぷよの座標を取得しておく
     const currentPuyoCoords = currentPuyo && gameState === 'playing' ? getPuyoCoords() : [];
-
-    // 【新規】ゴーストぷよの座標を取得しておく
     const ghostPuyoCoords = getGhostCoords(); 
 
-    // 配列インデックス y = 11 (可視領域の最上段) から y = 0 (最下段) へ逆順に描画
     for (let y = HEIGHT - 3; y >= 0; y--) { 
         for (let x = 0; x < WIDTH; x++) {
             const puyoElement = document.createElement('div');
@@ -452,7 +470,6 @@ function renderBoard() {
             }
 
             // 2. 落下中のぷよがこのセルにあるかチェックし、色とクラスを上書き
-            // (ゴーストの上に落下中のぷよが描画されるように優先)
             const puyoInFlight = currentPuyoCoords.find(p => p.x === x && p.y === y);
             
             if (puyoInFlight) {
@@ -489,8 +506,6 @@ function renderNextPuyo() {
 
 function updateUI() {
     document.getElementById('score').textContent = score;
-    
-    // ゲームオーバーでも連鎖数を上書きしない
     document.getElementById('chain-count').textContent = chainCount;
 }
 
@@ -507,13 +522,15 @@ function handleInput(event) {
             movePuyo(1, 0); 
             break;
         case 'z':
-        case 'x':
         case 'Z':
+            rotatePuyoCW(); // Zキー: 時計回り回転 (Aボタン)
+            break;
+        case 'x':
         case 'X':
-            rotatePuyo(); 
+            rotatePuyoCCW(); // Xキー: 反時計回り回転 (Bボタン)
             break;
         case 'ArrowDown':
-            movePuyo(0, -1); 
+            movePuyo(0, -1); // ソフトドロップ
             break;
         case ' ': // スペースキー
             event.preventDefault(); 
@@ -524,6 +541,8 @@ function handleInput(event) {
 
 // グローバルスコープに関数を公開
 window.resetGame = resetGame;
+window.rotatePuyoCW = rotatePuyoCW;
+window.rotatePuyoCCW = rotatePuyoCCW;
 
 // ゲーム開始
 document.addEventListener('DOMContentLoaded', initializeGame);
