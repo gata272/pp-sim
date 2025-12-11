@@ -45,11 +45,10 @@ body {
     width: 30px; 
     height: 30px; 
     border-radius: 50%;
-    /* 影をつけて立体感を出す */
     box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3), 0 2px 2px rgba(0,0,0,0.2); 
     display: inline-block; 
     box-sizing: border-box;
-    transition: transform 0.1s ease-out; /* 落下時のアニメーション用 */
+    transition: transform 0.1s ease-out; 
 }
 
 /* Puyo Color Definitions */
@@ -70,6 +69,14 @@ body {
     border: 2px dashed #999;
     opacity: 0.5;
 }
+/* 消しゴムボタンのスタイル */
+.erase-puyo {
+    background-color: #444 !important;
+    box-shadow: inset 0 0 0 2px #fff !important;
+    border-radius: 5px; /* 丸ではなく四角に */
+    /* 文字やアイコンを追加したい場合はここで調整 */
+}
+
 
 /* --- 情報パネルのレイアウト --- */
 
@@ -78,7 +85,7 @@ body {
     display: flex;
     flex-direction: row; /* 横並び */
     gap: 10px;
-    width: calc(30px * 6 + 10px); /* 盤面幅 + 隙間分 */
+    width: calc(30px * 6 + 10px); 
     flex-wrap: wrap; 
     justify-content: flex-start;
 }
@@ -109,29 +116,29 @@ body {
 /* 1. NEXT (info-group-a): ぷよを縦に並べるコンテナ */
 .info-group-a {
     flex-direction: column; 
-    flex-basis: 35%; 
-    min-width: 70px; 
-    max-width: 90px;
+    flex-basis: 45%; /* ★修正: 領域を拡大 */
+    min-width: 90px; /* ★修正: 確保する最小幅を大きく */
+    max-width: 120px;
     padding: 5px; 
 }
 
 /* NEXT内のぷよのサイズと配置 */
 #play-next-info .puyo {
-    width: 24px;
-    height: 24px;
+    width: 30px; /* ★修正: ぷよを大きくする */
+    height: 30px;
 }
 #next-puyo-1, #next-puyo-2 {
-    display: flex; /* puyo 2つを横並びにする */
+    display: flex; 
     justify-content: center;
     align-items: center;
-    gap: 2px;
-    margin: 3px 0;
+    gap: 5px; /* ★修正: ぷよ間の隙間を広げる */
+    margin: 5px 0;
 }
 
 
 /* 2. SCORE/CHAIN (info-group-b): 右側の領域を占める */
 #play-stats-info {
-    flex-basis: 60%; 
+    flex-basis: 50%; /* ★修正: 残りのスペース */
     display: flex;
     flex-direction: column;
     gap: 5px;
