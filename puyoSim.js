@@ -61,19 +61,18 @@ function initializeGame() {
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
         
-        // 【更新】モバイル操作ボタンのイベントリスナー設定
+        // 【最終確認】モバイル操作ボタンのイベントリスナー設定
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
-        const btnSoftDrop = document.getElementById('btn-soft-drop');
-        const btnRotateCW = document.getElementById('btn-rotate-cw');
-        const btnRotateCCW = document.getElementById('btn-rotate-ccw');
+        const btnRotateCW = document.getElementById('btn-rotate-cw'); // Aボタン (右回転)
+        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); // Bボタン (左回転)
         const btnHardDrop = document.getElementById('btn-hard-drop');
 
         if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
         if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
-        if (btnSoftDrop) btnSoftDrop.addEventListener('click', () => movePuyo(0, -1)); // ソフトドロップ
-        if (btnRotateCW) btnRotateCW.addEventListener('click', rotatePuyoCW); // Aボタン
-        if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCCW); // Bボタン
+        // ソフトドロップボタンはモバイル操作から削除
+        if (btnRotateCW) btnRotateCW.addEventListener('click', rotatePuyoCW);
+        if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCCW);
         if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
         
         document.initializedKeyHandler = true;
@@ -236,7 +235,7 @@ function movePuyo(dx, dy, newRotation) {
 }
 
 /**
- * 【更新】時計回り回転 (Aボタン, Zキー)
+ * 時計回り回転 (Aボタン, Zキー)
  */
 function rotatePuyoCW() {
     if (gameState !== 'playing' || !currentPuyo) return false;
@@ -244,7 +243,7 @@ function rotatePuyoCW() {
     // 時計回り: +1
     const newRotation = (currentPuyo.rotation + 1) % 4;
         
-    // 回転試行 (ワイルドローテーションは未実装)
+    // 回転試行
     if (movePuyo(0, 0, newRotation)) return true; 
     if (movePuyo(1, 0, newRotation)) return true; 
     if (movePuyo(-1, 0, newRotation)) return true; 
@@ -253,15 +252,15 @@ function rotatePuyoCW() {
 }
 
 /**
- * 【新規】反時計回り回転 (Bボタン, Xキー)
+ * 反時計回り回転 (Bボタン, Xキー)
  */
 function rotatePuyoCCW() {
     if (gameState !== 'playing' || !currentPuyo) return false;
 
-    // 反時計回り: -1 (+4 は負の値を正しく扱うため)
+    // 反時計回り: -1 
     const newRotation = (currentPuyo.rotation - 1 + 4) % 4;
         
-    // 回転試行 (ワイルドローテーションは未実装)
+    // 回転試行
     if (movePuyo(0, 0, newRotation)) return true; 
     if (movePuyo(1, 0, newRotation)) return true; 
     if (movePuyo(-1, 0, newRotation)) return true; 
