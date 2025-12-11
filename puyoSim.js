@@ -51,12 +51,7 @@ function initializeGame() {
     gameState = 'playing';
 
     // ネクストぷよリストを完全にランダムなぷよで初期化 (最低2個)
-    if (nextPuyoColors.length < 2) {
-        nextPuyoColors = [getRandomPair(), getRandomPair()];
-    } else {
-         // リセット時、ネクストリストを一旦クリアして再生成
-        nextPuyoColors = [getRandomPair(), getRandomPair()];
-    }
+    nextPuyoColors = [getRandomPair(), getRandomPair()];
 
     generateNewPuyo();
     
@@ -66,7 +61,7 @@ function initializeGame() {
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
         
-        // 【重要：回転機能の反転を維持】モバイル操作ボタンのイベントリスナー設定
+        // 【重要：イベントリスナーの確認】
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
         const btnRotateCW = document.getElementById('btn-rotate-cw'); // Aボタン
@@ -81,6 +76,7 @@ function initializeGame() {
         // Bボタン (右回転) -> 時計回り (CW) を実行
         if (btnRotateCCW) btnRotateCCW.addEventListener('click', rotatePuyoCW); 
         
+        // ハードドロップボタンは確実にhardDropを呼び出す
         if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
         
         document.initializedKeyHandler = true;
@@ -92,7 +88,7 @@ function initializeGame() {
 /**
  * 盤面リセット関数
  */
-function resetGame() {
+window.resetGame = function() { // グローバルに公開
     initializeGame();
     alert('盤面をリセットしました。');
 }
@@ -244,9 +240,9 @@ function movePuyo(dx, dy, newRotation) {
 }
 
 /**
- * 時計回り回転 (CW) 
+ * 時計回り回転 (CW) (Bボタンに割り当て)
  */
-function rotatePuyoCW() {
+window.rotatePuyoCW = function() {
     if (gameState !== 'playing' || !currentPuyo) return false;
 
     // 時計回り: +1
@@ -261,9 +257,9 @@ function rotatePuyoCW() {
 }
 
 /**
- * 反時計回り回転 (CCW)
+ * 反時計回り回転 (CCW) (Aボタンに割り当て)
  */
-function rotatePuyoCCW() {
+window.rotatePuyoCCW = function() {
     if (gameState !== 'playing' || !currentPuyo) return false;
 
     // 反時計回り: -1 
@@ -281,7 +277,7 @@ function rotatePuyoCCW() {
 function hardDrop() {
     if (gameState !== 'playing' || !currentPuyo) return;
 
-    // 衝突するまで下に移動
+    // 衝突するまで下に移動 (ソフトドロップを繰り返すことで実現)
     while (movePuyo(0, -1));
 
     lockPuyo();
@@ -498,10 +494,11 @@ function renderNextPuyo() {
     const next1Element = document.getElementById('next-puyo-1');
     const next2Element = document.getElementById('next-puyo-2');
     
+    // 要素が見つからない場合は処理を中断 (安全性の向上)
+    if (!next1Element || !next2Element) return;
+
     next1Element.innerHTML = '';
     next2Element.innerHTML = '';
-
-    if (nextPuyoColors.length < 2) return; 
 
     // Helper to create a puyo element
     const createPuyo = (color) => {
@@ -510,15 +507,19 @@ function renderNextPuyo() {
         return puyo;
     };
     
-    // Next 1
-    const [c1_1, c1_2] = nextPuyoColors[0];
-    next1Element.appendChild(createPuyo(c1_1)); // puyo1
-    next1Element.appendChild(createPuyo(c1_2)); // puyo2
+    // Next 1: 次に落ちてくるぷよ (nextPuyoColors[0])
+    if (nextPuyoColors.length >= 1) {
+        const [c1_1, c1_2] = nextPuyoColors[0];
+        next1Element.appendChild(createPuyo(c1_1)); // puyo1
+        next1Element.appendChild(createPuyo(c1_2)); // puyo2
+    }
 
-    // Next 2
-    const [c2_1, c2_2] = nextPuyoColors[1];
-    next2Element.appendChild(createPuyo(c2_1)); // puyo1
-    next2Element.appendChild(createPuyo(c2_2)); // puyo2
+    // Next 2: その次に落ちてくるぷよ (nextPuyoColors[1])
+    if (nextPuyoColors.length >= 2) {
+        const [c2_1, c2_2] = nextPuyoColors[1];
+        next2Element.appendChild(createPuyo(c2_1)); // puyo1
+        next2Element.appendChild(createPuyo(c2_2)); // puyo2
+    }
 }
 
 function updateUI() {
@@ -556,11 +557,5 @@ function handleInput(event) {
     }
 }
 
-// グローバルスコープに関数を公開
-window.resetGame = resetGame;
-window.rotatePuyoCW = rotatePuyoCW;
-window.rotatePuyoCCW = rotatePuyoCCW;
-
 // ゲーム開始
 document.addEventListener('DOMContentLoaded', initializeGame);
-
