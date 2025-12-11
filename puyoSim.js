@@ -50,8 +50,13 @@ function initializeGame() {
     chainCount = 0;
     gameState = 'playing';
 
-    // ネクストぷよリストを完全にランダムなぷよで初期化
-    nextPuyoColors = [getRandomPair(), getRandomPair()];
+    // ネクストぷよリストを完全にランダムなぷよで初期化 (最低2個)
+    if (nextPuyoColors.length < 2) {
+        nextPuyoColors = [getRandomPair(), getRandomPair()];
+    } else {
+         // リセット時、ネクストリストを一旦クリアして再生成
+        nextPuyoColors = [getRandomPair(), getRandomPair()];
+    }
 
     generateNewPuyo();
     
@@ -61,7 +66,7 @@ function initializeGame() {
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
         
-        // 【重要：回転機能の反転】モバイル操作ボタンのイベントリスナー設定
+        // 【重要：回転機能の反転を維持】モバイル操作ボタンのイベントリスナー設定
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
         const btnRotateCW = document.getElementById('btn-rotate-cw'); // Aボタン
@@ -108,6 +113,7 @@ function getRandomPair() {
 function generateNewPuyo() {
     if (gameState === 'gameover') return;
 
+    // ネクストリストから1組取り出し、新しい1組を追加
     const [c1, c2] = nextPuyoColors.shift();
 
     currentPuyo = {
@@ -488,22 +494,31 @@ function renderBoard() {
 }
 
 function renderNextPuyo() {
-    const nextElement = document.getElementById('next-puyo');
-    nextElement.innerHTML = '';
-
-    if (nextPuyoColors.length === 0) return; 
-
-    const [c1, c2] = nextPuyoColors[0];
+    // 【修正】ネクストぷよを2個表示に対応
+    const next1Element = document.getElementById('next-puyo-1');
+    const next2Element = document.getElementById('next-puyo-2');
     
-    // 軸ぷよ (下側)
-    let puyo1 = document.createElement('div');
-    puyo1.className = `puyo puyo-${c1}`;
-    nextElement.appendChild(puyo1);
+    next1Element.innerHTML = '';
+    next2Element.innerHTML = '';
 
-    // 子ぷよ (上側)
-    let puyo2 = document.createElement('div');
-    puyo2.className = `puyo puyo-${c2}`;
-    nextElement.appendChild(puyo2);
+    if (nextPuyoColors.length < 2) return; 
+
+    // Helper to create a puyo element
+    const createPuyo = (color) => {
+        let puyo = document.createElement('div');
+        puyo.className = `puyo puyo-${color}`;
+        return puyo;
+    };
+    
+    // Next 1
+    const [c1_1, c1_2] = nextPuyoColors[0];
+    next1Element.appendChild(createPuyo(c1_1)); // puyo1
+    next1Element.appendChild(createPuyo(c1_2)); // puyo2
+
+    // Next 2
+    const [c2_1, c2_2] = nextPuyoColors[1];
+    next2Element.appendChild(createPuyo(c2_1)); // puyo1
+    next2Element.appendChild(createPuyo(c2_2)); // puyo2
 }
 
 function updateUI() {
@@ -548,3 +563,4 @@ window.rotatePuyoCCW = rotatePuyoCCW;
 
 // ゲーム開始
 document.addEventListener('DOMContentLoaded', initializeGame);
+
