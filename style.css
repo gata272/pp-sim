@@ -44,7 +44,7 @@ h1 {
     transition: transform 0.1s ease-out; 
 }
 
-/* ぷよの色定義 (変更なし) */
+/* ぷよの色定義 */
 .puyo-1 { background-color: #ff4444; border-color: #aa0000; } /* 赤 */
 .puyo-2 { background-color: #4444ff; border-color: #0000aa; } /* 青 */
 .puyo-3 { background-color: #44ff44; border-color: #00aa00; } /* 緑 */
@@ -85,7 +85,7 @@ h1 {
 #score, #chain-count {
     font-size: 1.8em;
     font-weight: bold;
-    color: #e63946; /* スコアの色は目立つように維持 */
+    color: #e63946;
 }
 
 /* 操作説明 */
