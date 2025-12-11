@@ -29,10 +29,8 @@ const BONUS_TABLE = {
 
 let board = []; 
 let currentPuyo = null; 
-let nextPuyoColors = [
-    [COLORS.RED, COLORS.BLUE], // NEXT
-    [COLORS.YELLOW, COLORS.GREEN] // NEXT NEXT
-];
+// 修正: 初期化時にランダム値が設定されるため、仮の配列を定義
+let nextPuyoColors = []; 
 let score = 0;
 let chainCount = 0;
 let gameState = 'playing'; // 'playing', 'chaining', 'gameover'
@@ -53,6 +51,9 @@ function initializeGame() {
     chainCount = 0;
     gameState = 'playing';
 
+    // 修正: ネクストぷよリストを完全にランダムなぷよで初期化
+    nextPuyoColors = [getRandomPair(), getRandomPair()];
+
     generateNewPuyo();
     
     updateUI();
@@ -68,9 +69,11 @@ function getRandomColor() {
     return Math.floor(Math.random() * 4) + 1;
 }
 
-/**
- * 修正済み: 落下開始位置を可視領域内の y=10 に調整し、最初からぷよが表示されるようにしました。
- */
+// 修正: ランダムな色の組ぷよを生成するヘルパー関数
+function getRandomPair() {
+    return [getRandomColor(), getRandomColor()];
+}
+
 function generateNewPuyo() {
     const [c1, c2] = nextPuyoColors.shift();
 
@@ -78,11 +81,12 @@ function generateNewPuyo() {
         mainColor: c1,
         subColor: c2,
         mainX: 2, 
-        mainY: 10, // 落下開始位置 (配列インデックス10、可視領域の上から2段目)
+        mainY: 10, // 落下開始位置 (可視領域の上から2段目)
         rotation: 0 
     };
 
-    nextPuyoColors.push([getRandomColor(), getRandomColor()]);
+    // 新しいネクストぷよを生成し、リストに追加
+    nextPuyoColors.push(getRandomPair());
 }
 
 function getPuyoCoords() {
@@ -199,7 +203,7 @@ function lockPuyo() {
     runChain();
 }
 
-// --- 連鎖判定ロジック (DFS) は変更なし ---
+// --- 連鎖判定ロジック (DFS) ---
 function findConnectedPuyos() {
     let disappearingGroups = [];
     let visited = Array(HEIGHT).fill(0).map(() => Array(WIDTH).fill(false));
@@ -264,7 +268,7 @@ async function runChain() {
         });
     });
 
-    renderBoard(); // 削除後の盤面を描画 (空きスペースを確認可能)
+    renderBoard(); // 削除後の盤面を描画
     updateUI();
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -272,7 +276,7 @@ async function runChain() {
     // ぷよの落下 (データを更新)
     gravity(); 
 
-    // 【修正済み】落下後の盤面を描画し、ちぎり動作を画面に反映させます。
+    // 修正済み: 落下後の盤面を描画し、ちぎり動作を画面に反映させます。
     renderBoard(); 
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -309,8 +313,8 @@ function calculateScore(groups, currentChain) {
 
 
 /**
- * 【修正済み】ぷよぷよ標準の重力処理（列圧縮）を実装しました。
- * 各列のぷよを、間に空きがあっても下端まで詰めることで、「ちぎり」を再現します。
+ * ぷよぷよ標準の重力処理（列圧縮）
+ * これが「ちぎり」のロジックです。各列のぷよを間に空きがあっても下端まで詰めます。
  */
 function gravity() {
     for (let x = 0; x < WIDTH; x++) {
@@ -337,9 +341,6 @@ function gravity() {
 
 // --- 描画とUI更新 ---
 
-/**
- * 【修正済み】盤面の上下を修正し、落下中のぷよを正しく描画します。
- */
 function renderBoard() {
     const boardElement = document.getElementById('puyo-board');
     boardElement.innerHTML = '';
@@ -347,8 +348,7 @@ function renderBoard() {
     // 落下中のぷよの座標を取得しておく
     const currentPuyoCoords = currentPuyo && gameState === 'playing' ? getPuyoCoords() : [];
 
-    // 配列インデックス y = 11 (可視領域の最上段) から y = 0 (最下段) へ逆順に描画します。
-    // HEIGHT - 3 は、配列の12段目 (インデックス11) を指します。
+    // 修正済み: 配列インデックス y = 11 (可視領域の最上段) から y = 0 (最下段) へ逆順に描画
     for (let y = HEIGHT - 3; y >= 0; y--) { 
         for (let x = 0; x < WIDTH; x++) {
             const puyoElement = document.createElement('div');
@@ -375,6 +375,9 @@ function renderNextPuyo() {
     nextElement.innerHTML = '';
 
     // NEXTのぷよを描画
+    // nextPuyoColors[0] が存在しない場合は描画しない (ゲームオーバー時など)
+    if (nextPuyoColors.length === 0) return; 
+
     const [c1, c2] = nextPuyoColors[0];
     
     // 軸ぷよ (下側)
