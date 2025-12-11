@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ぷよぷよテトリス2 連鎖シミュレーション (Puyo Sim)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1>ぷよぷよ連鎖シミュレーション</h1>
+
+    <div id="game-container">
+        <div id="puyo-board"></div>
+
+        <div id="info-panel">
+            <div class="info-box">
+                <h2>NEXT</h2>
+                <div id="next-puyo"></div>
+            </div>
+            
+            <div class="info-box">
+                <h2>SCORE</h2>
+                <div id="score">0</div>
+            </div>
+
+            <div class="info-box">
+                <h2>CHAIN</h2>
+                <div id="chain-count">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls-panel">
+        <p><strong>操作キー:</strong></p>
+        <ul>
+            <li>← / → : 移動</li>
+            <li>Z / X : 回転</li>
+            <li>↓ : ソフトドロップ (高速落下)</li>
+            <li>Space : ハードドロップ (即固定 & 連鎖開始)</li>
+        </ul>
+    </div>
+
+    <script src="puyoSim.js"></script>
+</body>
+</html>
