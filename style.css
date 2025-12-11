@@ -3,130 +3,52 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    background-color: #111; /* 黒基調 */
-    color: #fff; /* テキストは白 */
+    background-color: #111;
+    color: #fff;
     margin: 0;
     padding: 20px;
 }
 
 #game-container {
-    /* 盤面を少し左に寄せるため、中央揃えを維持しつつ、左側の余白を減らす */
     display: flex;
     gap: 20px;
-    background-color: #222; /* 濃いめの黒 */
+    background-color: #222;
     padding: 20px;
     border-radius: 0;
     box-shadow: none;
+    /* 盤面を大きくするため、コンテナの最大幅を拡張 */
+    max-width: 900px; 
+    width: 90%; 
 }
 
-/* 盤面 */
+/* 盤面: 約 2/3 の幅 */
 #puyo-board {
     display: grid;
-    grid-template-rows: repeat(12, 30px); /* 12段（可視領域） */
-    grid-template-columns: repeat(6, 30px); /* 6列 */
+    grid-template-rows: repeat(12, 30px); 
+    grid-template-columns: repeat(6, 30px); 
     border: 3px solid #666;
-    background-color: #000; /* 盤面は真っ黒 */
-
-    /* 非常に薄いマス目の設定 */
+    background-color: #000;
+    
     background-image: linear-gradient(to right, #1a1a1a 1px, transparent 1px),
                       linear-gradient(to bottom, #1a1a1a 1px, transparent 1px);
     background-size: 30px 30px; 
     background-position: -1px -1px; 
+    
+    flex-shrink: 0;
+    width: calc(30px * 6); /* 180px */
 }
 
-/* ぷよ（基本スタイル） */
-.puyo {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 2px solid #000;
-    box-sizing: border-box;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: transform 0.1s ease-out; 
-}
-
-/* ぷよの色定義 */
-.puyo-1 { background-color: #ff4444; border-color: #aa0000; } /* 赤 */
-.puyo-2 { background-color: #4444ff; border-color: #0000aa; } /* 青 */
-.puyo-3 { background-color: #44ff44; border-color: #00aa00; } /* 緑 */
-.puyo-4 { background-color: #ffff44; border-color: #aaaa00; } /* 黄 */
-.puyo-5 { background-color: #cccccc; border-color: #999999; } /* 仮のおじゃまぷよ */
-.puyo-0 { background-color: transparent; border: none; } /* 空 */
-
-/* ゴーストぷよのスタイル */
-.puyo-ghost {
-    opacity: 0.3; 
-    border: 1px solid #777 !important; 
-    transform: scale(0.95); 
-}
-
-/* ネクストぷよの表示 (2セットに対応) */
-#next-puyo-1, #next-puyo-2 {
-    display: grid;
-    grid-template-columns: 30px 30px;
-    grid-template-rows: 30px;
-    margin-bottom: 10px; /* 1つ目と2つ目の間に隙間 */
-}
-
-
-/* 情報パネル */
+/* 情報パネル: 約 1/3 の幅、縦並び、CSSのorderで順序を制御 */
 #info-panel {
-    width: 150px;
     display: flex;
-    flex-direction: column;
-    gap: 15px; /* 要素間のスペースを調整 */
-}
-
-/* モード切り替えボタンの配置とデザイン */
-#mode-controls {
-    order: -1; /* flexコンテナ内で最初に表示 */
-    text-align: center; 
-    margin-bottom: 5px; 
-}
-#mode-toggle-button {
-    width: 50px; /* 横幅を短く */
-    height: 40px; /* 高さ */
-    padding: 0;
-    background-color: #6a0dad; 
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.9em;
-    transition: background-color 0.2s;
-    display: flex; 
-    justify-content: center;
-    align-items: center;
-}
-#mode-toggle-button:hover {
-    background-color: #4b0082;
-}
-
-/* アイコンのスタイル (文字の代わりにUnicode文字を使用) */
-#mode-icon {
-    font-size: 1.5em; 
-    line-height: 1; /* アイコンの垂直位置を調整 */
-}
-
-/* プレイモードへ誘導アイコン (ペンの代替) */
-.icon-edit::before {
-    content: "\270E"; /* ✍ (ペンマークの代替) */
-}
-/* エディットモードへ誘導アイコン (コントローラー/プロコンの代替) */
-.icon-play::before {
-    content: "\1F3AE"; /* 🎮 (ゲームコントローラー) */
-}
-
-
-/* スコア/CHAIN/NEXTを表示するコンテナ */
-#play-mode-info {
-    display: flex;
-    flex-direction: column;
+    flex-direction: column; /* 縦並びの基準 */
     gap: 15px;
+    flex-grow: 1; 
+    width: 100%; 
+    max-width: 300px; 
 }
 
+/* 全情報ボックス共通スタイル */
 .info-box {
     padding: 10px;
     border: 1px solid #444; 
@@ -134,104 +56,68 @@ body {
     border-radius: 0;
     text-align: center;
 }
-
 .info-box h2 {
     margin: 0 0 5px 0;
     font-size: 1.1em;
     color: #ccc;
 }
 
-#score, #chain-count {
-    font-size: 1.8em;
-    font-weight: bold;
-    color: #e63946;
+/* --- プレイモードの配置 (デフォルト) --- */
+/* プレイモードの要素を表示 */
+.play-info { display: block; }
+/* エディットモードの要素を非表示 */
+.edit-info { display: none; }
+
+/* プレイモードの並び順 (NEXT:1, SCORE:2, CHAIN:3, MODE:4) */
+#play-next-info { order: 1; }
+#play-score-info { order: 2; }
+#play-chain-info { order: 3; }
+#mode-controls { order: 4; }
+
+/* --- エディットモード時の配置 (JSでinfo-panelに.edit-mode-activeクラスが追加された時) --- */
+.edit-mode-active .play-info {
+    display: none !important; /* プレイモード情報を非表示 */
 }
 
-/* --- エディットモードのスタイル --- */
-
-#edit-mode-info {
-    /* JSで display: flex に切り替えられる */
-    flex-direction: column;
-    gap: 15px;
+.edit-mode-active .edit-info {
+    display: block !important; /* エディットモード情報を表示 */
 }
 
-.edit-section h2 {
-    font-size: 1em;
-    margin-bottom: 8px;
-}
+/* エディットモードの並び順 (PALETTE:1, NEXT_SETTINGS:2, MODE:3) */
+.edit-mode-active #edit-palette-info { order: 1; }
+.edit-mode-active #edit-next-settings { order: 2; }
+.edit-mode-active #mode-controls { order: 3; }
 
-/* パレットコンテナ */
-#color-palette {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    justify-content: center;
-}
 
-.palette-color {
-    width: 35px; 
-    height: 35px;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.1s, transform 0.1s;
-    border: 2px solid transparent; 
+/* --- モード切替ボタンのスタイル --- */
+#mode-controls {
+    text-align: center; 
+    padding: 0; 
 }
-
-.palette-color.selected {
-    border-color: #e63946; /* 選択中の色をハイライト */
-    opacity: 1;
-    transform: scale(1.1);
-}
-
-/* ぷよ-0 (空) のパレット */
-.puyo-0.palette-color {
-    border-radius: 5px; 
-    background-color: #333;
-    border: 2px dashed #666; 
-    background-image: none; /* グリッド表示を無効化 */
-}
-
-/* ネクスト設定エリア */
-#edit-next-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    align-items: center;
-    margin-top: 10px;
-}
-
-.edit-next-slot {
-    display: flex;
-    width: 70px; 
-    height: 35px; 
-    border: 2px dashed #999;
-    background-color: #1a1a1a;
-    justify-content: space-around;
-    align-items: center;
-    padding: 2px;
-}
-
-.edit-next-slot .puyo {
-    width: 30px;
-    height: 30px;
-    border: 2px solid #000; 
-    cursor: pointer; /* タップ可能であることを示す */
-}
-
-#apply-next-button {
-    margin-top: 10px;
-    padding: 8px 15px;
-    background-color: #4CAF50; /* 緑 */
+#mode-toggle-button {
+    width: 50px; 
+    height: 40px;
+    padding: 0;
+    background-color: #6a0dad; 
     color: white;
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    display: flex; 
+    justify-content: center;
+    align-items: center;
 }
+#mode-icon {
+    font-size: 1.5em; 
+    line-height: 1; 
+}
+.icon-edit::before { content: "\270E"; } /* ✍ (ペン) */
+.icon-play::before { content: "\1F3AE"; } /* 🎮 (ゲームコントローラー) */
 
 
-/* モバイル操作ボタンの基本スタイル (1段、正方形) */
+/* --- モバイル操作ボタンのスタイル --- */
 #mobile-controls {
-    display: none; 
+    display: none; /* デフォルトは非表示 (JSで切り替え) */
     margin-top: 20px;
     width: 100%;
     max-width: 350px; 
@@ -257,63 +143,42 @@ body {
     flex-grow: 1; 
     line-height: 1; 
 }
+/* ... (puyo, palette, next stylesは省略) ... */
 
-.mobile-btn:active {
-    background-color: #1d3557;
-}
 
-.drop-btn {
-    background-color: #457b9d; 
-}
-
-.drop-btn:active {
-    background-color: #1d3557;
-}
-
-/* 画面幅が狭いときのレイアウト調整とボタン表示 (モバイル優先) */
+/* 画面幅が狭いときのレイアウト調整 (モバイル優先) */
 @media (max-width: 650px) {
     #game-container {
         flex-direction: column;
+        padding: 10px;
+        width: 100%;
+        max-width: none;
     }
     
     #puyo-board {
         margin: 0 auto;
     }
 
-    /* モード切替ボタンを右上に表示するために、info-panelを調整 */
+    /* モバイルでは情報パネルを横並びにする */
     #info-panel {
         width: 100%;
-        gap: 10px;
-        padding-top: 10px;
-    }
-    
-    #mode-controls {
-        order: -3; /* モバイルでは最上部へ */
-        text-align: right;
-    }
-
-    /* プレイモード時: スコアとNEXTを横並びにする */
-    #play-mode-info {
-        flex-direction: row;
-        justify-content: space-around;
-    }
-
-    .info-box {
-        flex-basis: 30%;
-    }
-    
-    /* エディットモード時: 情報を縦並びにする */
-    #edit-mode-info {
-        width: 100%;
-        flex-direction: column;
-        align-items: center;
-    }
-    .edit-section {
-        width: 100%;
+        max-width: none;
         box-sizing: border-box;
+        gap: 10px;
+        flex-direction: row;
+        flex-wrap: wrap; 
+        justify-content: space-around;
+        align-items: flex-start;
     }
+
+    /* モバイルでの要素幅と順序を再定義 */
+    #play-next-info, #play-score-info, #play-chain-info, #mode-controls {
+        flex-basis: 45%; 
+        order: initial; /* orderをリセットし、HTMLの順序とflex-wrapに任せる */
+    }
+    #mode-controls { order: 4; } /* モードボタンだけは最後に残す */
     
-    #mobile-controls {
-        /* JSで表示制御 */
-    }
+    .edit-mode-active #edit-palette-info { order: 1; flex-basis: 100%; }
+    .edit-mode-active #edit-next-settings { order: 2; flex-basis: 100%; }
+    .edit-mode-active #mode-controls { order: 3; flex-basis: 100%; } 
 }
