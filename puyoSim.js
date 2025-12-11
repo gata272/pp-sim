@@ -68,9 +68,6 @@ function getRandomColor() {
     return Math.floor(Math.random() * 4) + 1;
 }
 
-/**
- * 【修正】落下開始位置を可視領域内の y=10 に調整しました。
- */
 function generateNewPuyo() {
     const [c1, c2] = nextPuyoColors.shift();
 
@@ -93,7 +90,6 @@ function getPuyoCoords() {
     let subY = mainY;
 
     // rotationに基づき、子ぷよの相対座標を計算
-    // 0:上-下 (子ぷよが軸ぷよの真上), 1:左-右, 2:下-上, 3:右-左
     if (rotation === 0) subY = mainY + 1; 
     if (rotation === 1) subX = mainX - 1; 
     if (rotation === 2) subY = mainY - 1; 
@@ -268,6 +264,7 @@ async function runChain() {
 
     await new Promise(resolve => setTimeout(resolve, 300));
 
+    // 連鎖後の重力処理 (ちぎりを含む)
     gravity();
 
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -303,27 +300,29 @@ function calculateScore(groups, currentChain) {
 
 
 /**
- * 【修正】個別落下（ちぎり）の重力処理に修正
- * ぷよが真下に空きがある場合にのみ落下する処理を、落下がなくなるまで繰り返します。
+ * 【修正済み】ぷよぷよ標準の重力処理（列圧縮）を実装しました。
+ * これにより、ちぎりが発生した後のぷよが正しく落下します。
  */
 function gravity() {
-    let dropped;
-    do {
-        dropped = false;
-        // 盤面を下から2段目 (y=1) から最上段 (y=HEIGHT-1) まで走査
-        // 下にあるぷよから順に落下判定を行います。
-        for (let y = 1; y < HEIGHT; y++) {
-            for (let x = 0; x < WIDTH; x++) {
-                // 現在のセルにぷよがあり、かつ真下のセル (y-1) が空の場合
-                if (board[y][x] !== COLORS.EMPTY && board[y - 1][x] === COLORS.EMPTY) {
-                    // 落下
-                    board[y - 1][x] = board[y][x];
-                    board[y][x] = COLORS.EMPTY;
-                    dropped = true; // 落下が発生した
-                }
+    for (let x = 0; x < WIDTH; x++) {
+        let newColumn = [];
+
+        // 1. ぷよだけを抽出し、下に詰める
+        for (let y = 0; y < HEIGHT; y++) {
+            if (board[y][x] !== COLORS.EMPTY) {
+                newColumn.push(board[y][x]);
             }
         }
-    } while (dropped); // 落下が発生しなくなるまでループ
+
+        // 2. 下から詰めたぷよを盤面に戻す（落下）
+        for (let y = 0; y < HEIGHT; y++) {
+            if (y < newColumn.length) {
+                board[y][x] = newColumn[y];
+            } else {
+                board[y][x] = COLORS.EMPTY; // 上部を空にする
+            }
+        }
+    }
 }
 
 
