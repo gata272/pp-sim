@@ -1,75 +1,213 @@
-/* --- (中略) --- */
-/* Puyo base style (盤面用) */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #111; /* 黒基調 */
+    color: #fff; /* テキストは白 */
+    margin: 0;
+    padding: 20px;
+}
+
+#game-container {
+    display: flex;
+    gap: 20px;
+    background-color: #222; /* 濃いめの黒 */
+    padding: 20px;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* 盤面 */
+#puyo-board {
+    display: grid;
+    grid-template-rows: repeat(12, 30px); /* 12段（可視領域） */
+    grid-template-columns: repeat(6, 30px); /* 6列 */
+    border: 3px solid #666;
+    background-color: #000; /* 盤面は真っ黒 */
+
+    /* 非常に薄いマス目の設定 */
+    background-image: linear-gradient(to right, #1a1a1a 1px, transparent 1px),
+                      linear-gradient(to bottom, #1a1a1a 1px, transparent 1px);
+    background-size: 30px 30px; 
+    background-position: -1px -1px; 
+}
+
+/* ぷよ（基本スタイル） */
 .puyo {
-    width: 30px; 
-    height: 30px; 
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    /* 影をつけて立体感を出す */
-    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3), 0 2px 2px rgba(0,0,0,0.2); 
-    display: inline-block; 
+    border: 2px solid #000;
     box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     transition: transform 0.1s ease-out; 
 }
 
-/* Puyo Color Definitions */
-.puyo-1 { background-color: #e63946; } /* 赤 */
-.puyo-2 { background-color: #457b9d; } /* 青 */
-.puyo-3 { background-color: #8ac926; } /* 緑 */
-.puyo-4 { background-color: #fca311; } /* 黄 */
-.puyo-5 { background-color: #ccc; } /* おじゃまぷよ */
+/* ぷよの色定義 */
+.puyo-1 { background-color: #ff4444; border-color: #aa0000; } /* 赤 */
+.puyo-2 { background-color: #4444ff; border-color: #0000aa; } /* 青 */
+.puyo-3 { background-color: #44ff44; border-color: #00aa00; } /* 緑 */
+.puyo-4 { background-color: #ffff44; border-color: #aaaa00; } /* 黄 */
+.puyo-5 { background-color: #cccccc; border-color: #999999; } /* 仮のおじゃまぷよ */
+.puyo-0 { background-color: transparent; border: none; } /* 空 */
 
-/* Empty cell or Ghost Puyo (透明/枠線のみ) */
-.puyo-0 { 
-    background-color: transparent !important;
-    box-shadow: none !important;
-}
+/* ゴーストぷよのスタイル */
 .puyo-ghost {
-    background-color: transparent !important;
-    box-shadow: none !important;
-    border: 2px dashed #999;
-    opacity: 0.5; /* ★修正: ゴーストぷよを見やすく半透明にする */
-}
-/* 消しゴムボタンのスタイル */
-/* --- (中略) --- */
-
-/* --- プレイモードのレイアウトと順序 --- */
-.edit-info { display: none; } 
-.play-info { display: flex; }
-
-/* 1. NEXT (info-group-a): ぷよを縦に並べるコンテナ */
-.info-group-a {
-    flex-direction: column; 
-    flex-basis: 45%; 
-    min-width: 90px; 
-    max-width: 120px;
-    padding: 5px; 
+    opacity: 0.3; 
+    border: 1px solid #777 !important; 
+    transform: scale(0.95); 
 }
 
-/* NEXT内のぷよのサイズと配置 */
-#play-next-info .puyo {
-    width: 30px; 
-    height: 30px;
-}
-#next-puyo-1, #next-puyo-2 {
-    display: flex; 
-    justify-content: center;
-    align-items: center;
-    gap: 5px; 
-    margin: 5px 0;
+/* ネクストぷよの表示 */
+#next-puyo {
+    display: grid;
+    grid-template-columns: 30px 30px;
+    grid-template-rows: 30px;
+    margin-bottom: 20px;
 }
 
-
-/* 2. SCORE/CHAIN (info-group-b): 右側の領域を占める */
-#play-stats-info {
-    flex-basis: 50%; 
+/* 情報パネル */
+#info-panel {
+    width: 150px;
     display: flex;
-    flex-direction: column; /* ★修正: 縦に並べて、ネクストと横並びを維持 */
-    gap: 5px;
-}
-#play-stats-info .info-box {
-    padding: 5px;
-    flex-grow: 1;
+    flex-direction: column;
+    gap: 15px;
 }
 
-/* 3. MODE/RESET (下段) */
-/* --- (中略) --- */
+.info-box {
+    padding: 10px;
+    border: 1px solid #444; 
+    background-color: #333; 
+    border-radius: 0;
+    text-align: center;
+}
+
+.info-box h2 {
+    margin: 0 0 5px 0;
+    font-size: 1.1em;
+    color: #ccc;
+}
+
+#score, #chain-count {
+    font-size: 1.8em;
+    font-weight: bold;
+    color: #e63946;
+}
+
+/* 操作説明 */
+#controls-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #222; 
+    border-radius: 0;
+    box-shadow: none;
+    border: 1px solid #444;
+}
+
+/* リセットボタンのスタイル */
+#reset-button {
+    margin-top: 15px;
+    padding: 10px 20px;
+    background-color: #e63946;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s;
+}
+
+#reset-button:hover {
+    background-color: #c9303d;
+}
+
+/* 以前の多段コントロールを非表示に */
+#move-drop-controls, #rotation-controls {
+    display: none; 
+}
+
+
+/* 【最終修正】モバイル操作ボタンの基本スタイル (1段、正方形) */
+#mobile-controls {
+    display: none; /* 初期状態では非表示 (PC優先) */
+    margin-top: 20px;
+    width: 100%;
+    max-width: 350px; 
+    flex-direction: row; 
+    justify-content: space-between; 
+    gap: 5px; 
+}
+
+.mobile-btn {
+    /* 正方形のサイズ */
+    width: 65px; 
+    height: 65px; 
+    padding: 0;
+    
+    font-size: 1em;
+    font-weight: bold;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: #457b9d; /* 青系のコントロールカラー */
+    transition: background-color 0.1s;
+    touch-action: manipulation;
+    
+    flex-shrink: 0; 
+    flex-grow: 1; 
+}
+
+.mobile-btn:active {
+    background-color: #1d3557;
+}
+
+/* ハードドロップボタン */
+.drop-btn {
+    background-color: #e63946; 
+    font-size: 2em; /* 矢印を大きく表示 */
+    line-height: 1;
+}
+
+.drop-btn:active {
+    background-color: #c9303d;
+}
+
+/* 回転ボタンのラベル（日本語を含む）が収まるようにフォントサイズを調整 */
+.rotate-btn {
+    font-size: 0.8em; 
+}
+
+
+/* 画面幅が狭いときのレイアウト調整とボタン表示 (モバイル優先) */
+@media (max-width: 650px) {
+    #game-container {
+        flex-direction: column;
+    }
+    
+    #puyo-board {
+        margin: 0 auto;
+    }
+
+    #info-panel {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-around;
+        padding-top: 10px;
+    }
+
+    .info-box {
+        flex-basis: 30%;
+    }
+
+    #controls-panel {
+        display: none; /* キーボード操作説明を非表示にする */
+    }
+
+    #mobile-controls {
+        display: flex; /* モバイルボタンを表示 */
+    }
+}
