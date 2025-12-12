@@ -121,7 +121,7 @@ function initializeGame() {
     // 最初のぷよを生成
     generateNewPuyo(); 
     
-    // ★ 修正 1: 自動落下ボタンの初期化と状態設定 ★
+    // 自動落下ボタンの初期化と状態設定
     const autoDropButton = document.getElementById('auto-drop-toggle-button');
     if (autoDropButton) {
         // 初期状態 (ON) を明示的に設定
@@ -188,7 +188,7 @@ window.toggleMode = function() {
         
         boardElement.addEventListener('click', handleBoardClickEditMode);
         
-        // 消しゴムを追加したので、初期選択色を赤ではなく空き色にリセットするのも良い
+        // 消しゴム (COLORS.EMPTY = 0) を初期選択色にする
         selectPaletteColor(COLORS.EMPTY); 
         renderEditNextPuyos(); 
         renderBoard(); 
@@ -240,7 +240,9 @@ function dropPuyo() {
 }
 
 
-// ★ 修正 2: 自動落下ON/OFF切り替え関数 (動作修正) ★
+/**
+ * 自動落下ON/OFF切り替え関数 (グローバル公開)
+ */
 window.toggleAutoDrop = function() {
     const button = document.getElementById('auto-drop-toggle-button');
     if (!button) return;
@@ -339,7 +341,7 @@ function getRandomPair() {
 function generateNewPuyo() {
     if (gameState !== 'playing') return;
 
-    // ネクストリストが足りない場合（通常は2組だが、念のため）
+    // ネクストリストが足りない場合
     if (nextPuyoColors.length < 2) {
         while (nextPuyoColors.length < 2) {
             nextPuyoColors.push(getRandomPair());
@@ -765,6 +767,9 @@ function renderBoard() {
     }
 }
 
+/**
+ * プレイモードのネクスト描画 (上下反転修正済み)
+ */
 function renderPlayNextPuyo() {
     const next1Element = document.getElementById('next-puyo-1');
     const next2Element = document.getElementById('next-puyo-2');
@@ -781,20 +786,26 @@ function renderPlayNextPuyo() {
     };
     
     if (nextPuyoColors.length >= 1) {
+        // [c1_1] がメイン、[c1_2] がサブ（上に乗る）
         const [c1_1, c1_2] = nextPuyoColors[0];
-        next1Element.appendChild(createPuyo(c1_1)); 
-        next1Element.appendChild(createPuyo(c1_2)); 
+        
+        // 表示順を反転 (サブぷよ c1_2 が下、メインぷよ c1_1 が上)
+        next1Element.appendChild(createPuyo(c1_2)); // 下のぷよ
+        next1Element.appendChild(createPuyo(c1_1)); // 上のぷよ
     }
 
     if (nextPuyoColors.length >= 2) {
+        // [c2_1] がメイン、[c2_2] がサブ（上に乗る）
         const [c2_1, c2_2] = nextPuyoColors[1];
-        next2Element.appendChild(createPuyo(c2_1)); 
-        next2Element.appendChild(createPuyo(c2_2)); 
+        
+        // 表示順を反転 (サブぷよ c2_2 が下、メインぷよ c2_1 が上)
+        next2Element.appendChild(createPuyo(c2_2)); // 下のぷよ
+        next2Element.appendChild(createPuyo(c2_1)); // 上のぷよ
     }
 }
 
 /**
- * エディットモードのネクスト描画 (タップイベントの組み込み)
+ * エディットモードのネクスト描画 (タップイベントの組み込み、上下反転修正済み)
  */
 function renderEditNextPuyos() {
     const slots = [document.getElementById('edit-next-1'), document.getElementById('edit-next-2')];
@@ -822,8 +833,11 @@ function renderEditNextPuyos() {
         slot.innerHTML = '';
         if (editingNextPuyos[listIndex]) {
             const [c1, c2] = editingNextPuyos[listIndex];
-            slot.appendChild(createPuyo(c1, listIndex, 0)); 
-            slot.appendChild(createPuyo(c2, listIndex, 1)); 
+            
+            // 表示順を反転 (サブぷよ c2 が下、メインぷよ c1 が上)
+            // c1(メイン)は配列の0番目、c2(サブ)は配列の1番目に対応
+            slot.appendChild(createPuyo(c2, listIndex, 1)); // 下のぷよ
+            slot.appendChild(createPuyo(c1, listIndex, 0)); // 上のぷよ
         }
     });
 }
