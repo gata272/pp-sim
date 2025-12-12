@@ -4,7 +4,7 @@
 
 // 盤面サイズ
 const WIDTH = 6;
-const HEIGHT = 14; // 可視領域12 + 隠し領域2
+const HEIGHT = 14; // 可視領域12 + 隠し領域2 (Y=0 から Y=13)
 
 // ぷよの色定義
 const COLORS = {
@@ -47,14 +47,14 @@ let autoDropEnabled = true;
 // --- 初期化関数 ---
 
 /**
- * 盤面のDOM要素を一度だけ生成する (6列x12行)
+ * 盤面のDOM要素を一度だけ生成する (6列x14行)
  */
 function createBoardDOM() {
     const boardElement = document.getElementById('puyo-board');
     boardElement.innerHTML = ''; // 既存のものをクリア
 
-    // 描画は可視領域 (HEIGHT - 2 = 12行) のみ。y=11からy=0の順で配置
-    for (let y = HEIGHT - 3; y >= 0; y--) { 
+    // 描画は全領域 (HEIGHT = 14行) を行う。y=13からy=0の順で配置
+    for (let y = HEIGHT - 1; y >= 0; y--) { 
         for (let x = 0; x < WIDTH; x++) {
             const cell = document.createElement('div');
             // セルを一意に識別するためのIDを付与
@@ -307,10 +307,13 @@ function handleBoardClickEditMode(event) {
     const cellSize = rect.width / WIDTH; 
 
     let x = Math.floor((event.clientX - rect.left) / cellSize);
-    let y = Math.floor((rect.bottom - event.clientY) / cellSize);
+    let y_dom = Math.floor((event.clientY - rect.top) / cellSize); // DOMの上端からの行数 (0から13)
 
-    // 盤面の可視領域 (y=0 から y=11) 内かチェック
-    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT - 2) { 
+    // ★ 修正済み: DOMのY座標 (上=0, 下=13) をデータ配列のY座標 (下=0, 上=13) に変換 ★
+    let y = HEIGHT - 1 - y_dom;
+
+    // 盤面の全領域 (y=0 から y=13) 内かチェック
+    if (x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT) { 
         board[y][x] = currentEditColor;
         renderBoard(); 
     }
@@ -355,7 +358,8 @@ function generateNewPuyo() {
         mainColor: c1,
         subColor: c2,
         mainX: 2, // 中央上
-        mainY: HEIGHT - 3, // 可視領域の上端 (y=11)
+        // メインぷよの初期Y座標を Y=12 (13列目) に設定 
+        mainY: HEIGHT - 2, // 14 - 2 = 12 
         rotation: 0 // 縦に並ぶ初期回転
     };
     
@@ -468,6 +472,7 @@ function getGhostFinalPositions() {
         }
     }
     
+    // 可視領域 (Y=0からY=11) のみ描画対象とする
     return ghostPositions.filter(p => p.y < HEIGHT - 2); 
 }
 
@@ -552,8 +557,8 @@ function lockPuyo() {
     let isGameOver = false;
 
     for (const puyo of coords) {
-        // 隠し領域 (y=12, 13) に固定されたらゲームオーバー
-        if (puyo.y >= HEIGHT - 2) { 
+        // 14列目 (Y=13, HEIGHT-1) に固定されたらゲームオーバー
+        if (puyo.y >= HEIGHT - 1) { 
             isGameOver = true;
             break;
         }
@@ -723,10 +728,11 @@ function gravity() {
 function renderBoard() {
     const isPlaying = gameState === 'playing';
     const currentPuyoCoords = isPlaying ? getPuyoCoords() : [];
+    // ゴーストぷよは、可視領域 (Y=0からY=11) に限定して計算
     const ghostPuyoCoords = isPlaying ? getGhostFinalPositions() : []; 
 
-    // 描画は可視領域 (y=11 から y=0) のみ
-    for (let y = HEIGHT - 3; y >= 0; y--) { 
+    // 描画は全領域 (y=13 から y=0) を行う
+    for (let y = HEIGHT - 1; y >= 0; y--) { 
         for (let x = 0; x < WIDTH; x++) {
             const cellElement = document.getElementById(`cell-${x}-${y}`);
             if (!cellElement) continue;
