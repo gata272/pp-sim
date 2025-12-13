@@ -42,7 +42,7 @@ let editingNextPuyos = [];
 // --- 落下ループのための変数 ---
 let dropInterval = 1000; // 1秒ごとに落下
 let dropTimer = null; 
-let autoDropEnabled = false; // ★変更点: 初期状態で自動落下をOFF (false) に設定★
+let autoDropEnabled = false; 
 
 
 // --- 初期化関数 ---
@@ -115,7 +115,6 @@ function initializeGame() {
     // 自動落下ボタンの初期化
     const autoDropButton = document.getElementById('auto-drop-toggle-button');
     if (autoDropButton) {
-        // ★変更点: autoDropEnabledの初期値に合わせてボタン表示を更新★
         if (autoDropEnabled) {
             autoDropButton.textContent = '自動落下: ON';
             autoDropButton.classList.remove('disabled');
@@ -127,7 +126,6 @@ function initializeGame() {
 
     // 最初のぷよを生成
     generateNewPuyo(); 
-    // autoDropEnabled=false のため、タイマーはここでは開始されない
     startPuyoDropLoop(); 
     
     updateUI();
@@ -201,8 +199,13 @@ window.toggleMode = function() {
 
         boardElement.removeEventListener('click', handleBoardClickEditMode);
         
-        // プレイモード復帰時にDOMを確実にリセット
-        createBoardDOM(); 
+        // 修正済み：DOM再構築 (createBoardDOM) を削除
+        
+        // 修正済み：エディットモードで配置した浮きぷよを重力で落として安定させる
+        gravity(); 
+        
+        // 修正済み：エディットモードのネクスト設定をプレイモードに適用
+        nextPuyoColors = JSON.parse(JSON.stringify(editingNextPuyos));
         
         currentPuyo = null; 
         generateNewPuyo(); 
@@ -749,7 +752,7 @@ function renderBoard() {
 }
 
 /**
- * プレイモードのネクスト描画 (メイン=下, サブ=上)
+ * プレイモードのネクスト描画 (メイン=下, サブ=上になるよう描画順を調整)
  */
 function renderPlayNextPuyo() {
     const next1Element = document.getElementById('next-puyo-1');
@@ -768,18 +771,20 @@ function renderPlayNextPuyo() {
     slots.forEach((slot, index) => {
         slot.innerHTML = '';
         if (nextPuyoColors.length > index) {
-            // nextPuyoColors[i] は [メインの色(0), サブの色(1)]
+            // nextPuyoColors[i] は [メインの色(c_main, 0), サブの色(c_sub, 1)]
             const [c_main, c_sub] = nextPuyoColors[index]; 
             
-            // メインぷよ (c_main) が下、サブぷよ (c_sub) が上
-            slot.appendChild(createPuyo(c_main)); 
-            slot.appendChild(createPuyo(c_sub)); 
+            // ★修正: サブぷよ(c_sub)を先に、メインぷよ(c_main)を後に追加し、
+            // CSSによって c_main が視覚的に下、c_sub が上になるようにする。
+            
+            slot.appendChild(createPuyo(c_sub)); // 上のぷよ (サブ)
+            slot.appendChild(createPuyo(c_main)); // 下のぷよ (メイン)
         }
     });
 }
 
 /**
- * エディットモードのネクスト描画 (メイン=下, サブ=上, タップイベント組み込み)
+ * エディットモードのネクスト描画 (メイン=下, サブ=上になるよう描画順を調整)
  */
 function renderEditNextPuyos() {
     const slots = [document.getElementById('edit-next-1'), document.getElementById('edit-next-2')];
@@ -793,7 +798,7 @@ function renderEditNextPuyos() {
             if (gameState !== 'editing') return;
             
             if (editingNextPuyos.length > listIndex) {
-                // puyoIndex: 0=メイン, 1=サブ
+                // puyoIndex: 0=メイン(下), 1=サブ(上)
                 editingNextPuyos[listIndex][puyoIndex] = currentEditColor; 
                 renderEditNextPuyos(); 
             }
@@ -809,9 +814,11 @@ function renderEditNextPuyos() {
             // [c_main (0), c_sub (1)] の形式
             const [c_main, c_sub] = editingNextPuyos[listIndex];
             
-            // メインぷよ (c_main) が下、サブぷよ (c_sub) が上
-            slot.appendChild(createPuyo(c_main, listIndex, 0)); // 下のぷよ (メイン)
+            // ★修正: サブぷよ(c_sub)を先に、メインぷよ(c_main)を後に追加し、
+            // CSSによって c_main が視覚的に下、c_sub が上になるようにする。
+            
             slot.appendChild(createPuyo(c_sub, listIndex, 1)); // 上のぷよ (サブ)
+            slot.appendChild(createPuyo(c_main, listIndex, 0)); // 下のぷよ (メイン)
         }
     });
 }
