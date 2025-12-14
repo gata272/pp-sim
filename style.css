@@ -191,7 +191,7 @@ body {
 
 /* --- 3. コントロールボタンのレイアウト --- */
 #play-controls, #edit-controls, #mode-toggle-container,
-#history-controls /* ★追加: 履歴操作ボタンのコンテナ */
+#history-controls 
 {
     width: 100%; 
     display: flex;
@@ -200,7 +200,7 @@ body {
     flex-shrink: 0;
 }
 
-/* ★追加: UNDO/REDOボタンを横並びにする */
+/* UNDO/REDOボタンを横並びにする */
 #history-controls {
     flex-direction: row; 
     gap: 5px; 
@@ -208,7 +208,7 @@ body {
 }
 
 #undo-button, #redo-button {
-    flex-grow: 1; /* 幅を均等にする */
+    flex-grow: 1; 
     padding: 8px 5px;
     border: none;
     border-radius: 5px;
@@ -216,7 +216,7 @@ body {
     font-size: 0.9em;
     font-weight: bold;
     color: white;
-    background-color: #f4a261; /* オレンジ系 */
+    background-color: #f4a261; 
 }
 
 #undo-button:disabled, #redo-button:disabled {
@@ -240,9 +240,9 @@ body {
     text-transform: uppercase; 
 }
 
-/* ★修正: モード切り替えボタンのスタイルを統一 */
+/* モード切り替えボタンのスタイルを統一 */
 .mode-toggle-btn {
-    background-color: #457b9d; /* 青系の色 */
+    background-color: #457b9d; 
     color: white;
 }
 
@@ -284,15 +284,26 @@ body {
     flex-grow: 1; 
 }
 
-/* パレットのぷよも調整 */
+/* --- ★ パレットのレイアウト: 横3列グリッド ★ --- */
 #color-palette {
     flex-grow: 1; 
 }
+
+/* HTMLの .palette-row ごとに3列に並べる */
+.palette-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* 3列に均等分割 */
+    gap: 8px; 
+    margin-top: 5px; 
+    justify-items: center; 
+}
+
 #color-palette .puyo {
     cursor: pointer;
     box-shadow: 0 0 5px rgba(0,0,0,0.5);
-    width: 40px;
-    height: 40px; 
+    /* グリッドセル内で正方形を維持 */
+    width: 90%; 
+    aspect-ratio: 1 / 1; 
 }
 #color-palette .puyo.selected {
     box-shadow: 0 0 0 2px #fff, 0 0 4px 4px #ffc107; 
@@ -392,7 +403,7 @@ body {
     cursor: pointer;
 }
 
-/* --- モバイル操作ボタン --- */
+/* --- ★ モバイル操作ボタン ★ --- */
 #mobile-controls {
     display: none; 
     margin-top: 10px;
