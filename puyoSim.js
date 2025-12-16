@@ -153,14 +153,13 @@ function initializeGame() {
         
         // Undo/Redoのキーバインド
         document.addEventListener('keydown', (event) => {
-            if (gameState === 'playing') {
-                if ((event.key === 'z' || event.key === 'Z') && !event.shiftKey) {
-                    event.preventDefault(); // ブラウザの戻るを防止
-                    undoMove();
-                } else if (event.key === 'y' || event.key === 'Y' || (event.key === 'z' || event.key === 'Z') && event.shiftKey) {
-                    event.preventDefault(); // ブラウザの戻る/再読み込みを防止
-                    redoMove();
-                }
+            // ゲームオーバー時もUndo/Redoが効くように、gameStateチェックは関数内で行う
+            if ((event.key === 'z' || event.key === 'Z') && !event.shiftKey) {
+                event.preventDefault(); // ブラウザの戻るを防止
+                undoMove();
+            } else if (event.key === 'y' || event.key === 'Y' || (event.key === 'z' || event.key === 'Z') && event.shiftKey) {
+                event.preventDefault(); // ブラウザの戻る/再読み込みを防止
+                redoMove();
             }
         });
 
@@ -462,7 +461,8 @@ function restoreState(state) {
  * 一手戻す (Undo)
  */
 window.undoMove = function() {
-    if (gameState !== 'playing' && gameState !== 'chaining') return; 
+    // 修正: 'gameover' 状態でもUndoを許可する
+    if (gameState !== 'playing' && gameState !== 'chaining' && gameState !== 'gameover') return; 
     if (historyStack.length <= 1) return; 
 
     // 1. 現在の状態をRedoスタックにプッシュ
@@ -480,7 +480,8 @@ window.undoMove = function() {
  * 一手やり直す (Redo)
  */
 window.redoMove = function() {
-    if (gameState !== 'playing' && gameState !== 'chaining') return; 
+    // 修正: 'gameover' 状態でもRedoを許可する
+    if (gameState !== 'playing' && gameState !== 'chaining' && gameState !== 'gameover') return; 
     if (redoStack.length === 0) return;
 
     // 1. Redoスタックから状態を取り出し
@@ -853,34 +854,21 @@ function hardDrop() {
     lockPuyo(); 
 }
 
+/**
+ * ぷよを盤面に固定し、連鎖処理を開始する
+ */
 function lockPuyo() {
     if (gameState !== 'playing' || !currentPuyo) return;
 
     const coords = getPuyoCoords();
-    let isGameOver = false;
 
     // 1. 盤面にぷよを固定
     for (const puyo of coords) {
-        
-        // ゲームオーバー判定 (X=2, Y=12 のみ)
-        if (puyo.y === HEIGHT - 2 && puyo.x === 2) { // Y=12 かつ X=2
-             isGameOver = true;
-        } 
-        
         if (puyo.y >= 0) {
             board[puyo.y][puyo.x] = puyo.color;
         }
     }
 
-    if (isGameOver) {
-        gameState = 'gameover';
-        alert('ゲームオーバーです！');
-        clearInterval(dropTimer); 
-        updateUI();
-        renderBoard();
-        return;
-    }
-    
     // 2. 14段目 (Y=13, HEIGHT-1) のぷよを即座に削除
     for (let x = 0; x < WIDTH; x++) {
         if (board[HEIGHT - 1][x] !== COLORS.EMPTY) {
@@ -894,7 +882,7 @@ function lockPuyo() {
     // 4. 履歴の保存（新しい手としてRedoスタックをクリア）
     saveState(true); 
     
-    // 5. 連鎖開始
+    // 5. 連鎖開始 (ゲームオーバー判定より優先)
     gameState = 'chaining';
     chainCount = 0;
     
@@ -1004,7 +992,32 @@ async function runChain() {
             score += 3600; // 全消しボーナス 3600点
             updateUI(); 
         }
+        
+        // ----------------------------------------------------
+        // ★ 修正箇所: 連鎖終了後のゲームオーバー判定 (X=2, Y=12 のみ)
+        // ----------------------------------------------------
+        
+        // 判定基準: X=2, Y=12 のセルにぷよが残っているかのみをチェックする
+        const gameOverLineY = HEIGHT - 2; // Y=12
+        const checkX = 2; // X=2 (3列目)
+        
+        // Y=12 のマスにぷよが残っていればゲームオーバー
+        const isGameOver = board[gameOverLineY][checkX] !== COLORS.EMPTY;
+        
+        if (isGameOver) {
+            gameState = 'gameover';
+            alert('ゲームオーバーです！');
+            clearInterval(dropTimer); 
+            updateUI();
+            renderBoard();
+            return;
+        }
+        
+        // ----------------------------------------------------
+        // ★ 修正箇所ここまで
+        // ----------------------------------------------------
 
+        // ゲームオーバーでなければ、次のぷよを生成し、プレイを再開
         gameState = 'playing';
         generateNewPuyo(); 
         startPuyoDropLoop(); 
