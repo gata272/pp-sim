@@ -1,5 +1,3 @@
-// puyoSim.js
-
 // --- ぷよぷよシミュレーションの定数と設定 ---
 
 // 盤面サイズ
@@ -37,7 +35,7 @@ let gameState = 'playing'; // 'playing', 'chaining', 'gameover', 'editing'
 let currentEditColor = COLORS.EMPTY; // エディットモードで選択中の色 (デフォルトは消しゴム: 0)
 let editingNextPuyos = []; // エディットモードで使用するNEXT 50組
 
-// ★履歴管理用スタック
+// 履歴管理用スタック
 let historyStack = []; // 過去の状態を保存 (Undo用)
 let redoStack = [];    // 戻した状態を保存 (Redo用)
 
@@ -138,27 +136,48 @@ function initializeGame() {
     if (!document.initializedKeyHandler) {
         document.addEventListener('keydown', handleInput);
         
+        // PC用ショートカットキーの変更
         document.addEventListener('keydown', (event) => {
-            if ((event.key === 'z' || event.key === 'Z') && !event.shiftKey) {
+            const key = event.key.toLowerCase();
+            if (key === 'u') { // Undo (一手戻す)
                 event.preventDefault();
                 undoMove();
-            } else if (event.key === 'y' || event.key === 'Y' || (event.key === 'z' || event.key === 'Z') && event.shiftKey) {
+            } else if (key === 'y') { // Redo (やり直し)
                 event.preventDefault();
                 redoMove();
+            } else if (key === 'r') { // Reset (リセット)
+                event.preventDefault();
+                resetGame();
+            } else if (key === 'e') { // Edit (エディット切り替え)
+                event.preventDefault();
+                toggleMode();
             }
         });
 
         const btnLeft = document.getElementById('btn-left');
         const btnRight = document.getElementById('btn-right');
-        const btnRotateCW = document.getElementById('btn-rotate-cw'); 
-        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); 
+        const btnRotateCW = document.getElementById('btn-rotate-cw'); // Bボタン
+        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); // Aボタン
         const btnHardDrop = document.getElementById('btn-hard-drop');
+        const btnSoftDrop = document.getElementById('btn-soft-drop');
 
         if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
         if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
+        
+        // Bボタンで右回転(CW)、Aボタンで左回転(CCW)
         if (btnRotateCW) btnRotateCW.addEventListener('click', window.rotatePuyoCW); 
         if (btnRotateCCW) btnRotateCCW.addEventListener('click', window.rotatePuyoCCW); 
+        
         if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
+        
+        // スマホ用ソフトドロップ（1↓）
+        if (btnSoftDrop) btnSoftDrop.addEventListener('click', () => {
+            if (gameState === 'playing') {
+                clearInterval(dropTimer);
+                movePuyo(0, -1);
+                if (autoDropEnabled) startPuyoDropLoop();
+            }
+        });
         
         setupEditModeListeners(); 
         document.initializedKeyHandler = true;
@@ -690,7 +709,7 @@ function movePuyo(dx, dy, newRotation, shouldRender = true) {
     return false;
 }
 
-// ★修正済み: 回転補正ロジック
+// 回転補正ロジック
 window.rotatePuyoCW = function() {
     if (gameState !== 'playing' || !currentPuyo) return false;
     
@@ -708,7 +727,7 @@ window.rotatePuyoCW = function() {
     rotationSuccess = movePuyo(0, 0, newRotation);
 
     if (!rotationSuccess) {
-        // 2-A. 縦（0, 2）から横へ回転する場合（新しいロジック：スライド優先）
+        // 2-A. 縦（0, 2）から横へ回転する場合
         if (oldRotation === 0 || oldRotation === 2) {
             if (newRotation === 1) { // 左にサブ
                 rotationSuccess = movePuyo(1, 0, newRotation); // 右スライド
@@ -718,7 +737,7 @@ window.rotatePuyoCW = function() {
                 if (!rotationSuccess) rotationSuccess = movePuyo(0, 1, newRotation); // 上に逃げる
             }
         } 
-        // 2-B. 横（1, 3）から縦へ回転する場合（以前のロジック：1段上げるだけ）
+        // 2-B. 横（1, 3）から縦へ回転する場合
         else {
             rotationSuccess = movePuyo(0, 1, newRotation);
         }
@@ -1101,7 +1120,7 @@ function renderEditNextPuyos() {
         let puyo = document.createElement('div');
         puyo.className = `puyo puyo-${color}`;
         
-        puyo.addEventListener('click', (event) => {
+        puyo.onclick = (event) => {
             event.stopPropagation(); 
             if (gameState !== 'editing') return;
             
@@ -1109,7 +1128,7 @@ function renderEditNextPuyos() {
                 editingNextPuyos[listIndex][puyoIndex] = currentEditColor; 
                 renderEditNextPuyos(); 
             }
-        });
+        };
         
         return puyo;
     };
@@ -1171,9 +1190,7 @@ function handleInput(event) {
             break;
         case 'z':
         case 'Z':
-            if (!event.shiftKey) {
-                 rotatePuyoCW(); 
-            }
+            rotatePuyoCW(); 
             break;
         case 'x':
         case 'X':
