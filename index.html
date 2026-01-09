@@ -155,40 +155,6 @@
     </script>
 
 
-    <script>
-        window.addEventListener('load', () => {
-            const originalRenderEditNextPuyos = window.renderEditNextPuyos;
-            window.renderEditNextPuyos = function() {
-                const container = document.getElementById('edit-next-list-container');
-                if (!container) return;
-                container.innerHTML = '';
-                for (let i = 2; i < editingNextPuyos.length; i++) {
-                    const pair = editingNextPuyos[i];
-                    const item = document.createElement('div');
-                    item.className = 'edit-next-item';
-                    item.innerHTML = `<span class="edit-next-label">N${i+1}:</span><div class="edit-next-puyos"><div class="puyo puyo-${pair[0]}"></div><div class="puyo puyo-${pair[1]}"></div></div>`;
-                    container.appendChild(item);
-                }
-                const n1 = document.getElementById('edit-next-1');
-                const n2 = document.getElementById('edit-next-2');
-                if (n1 && editingNextPuyos[0]) {
-                    n1.innerHTML = `<span style="font-size:10px;color:#888">N1</span><div class="puyo puyo-${editingNextPuyos[0][1]}"></div><div class="puyo puyo-${editingNextPuyos[0][0]}"></div>`;
-                }
-                if (n2 && editingNextPuyos[1]) {
-                    n2.innerHTML = `<span style="font-size:10px;color:#888">N2</span><div class="puyo puyo-${editingNextPuyos[1][1]}"></div><div class="puyo puyo-${editingNextPuyos[1][0]}"></div>`;
-                }
-            };
-            const originalUpdateUI = window.updateUI;
-            window.updateUI = function() {
-                if (typeof originalUpdateUI === 'function') originalUpdateUI();
-                if (nextPuyoColors && nextPuyoColors.length >= 2) {
-                    const n1 = document.getElementById('next-puyo-1');
-                    const n2 = document.getElementById('next-puyo-2');
-                    if (n1) n1.innerHTML = `<span style="font-size:10px;color:#888">N1</span><div class="puyo puyo-${nextPuyoColors[0][1]}"></div><div class="puyo puyo-${nextPuyoColors[0][0]}"></div>`;
-                    if (n2) n2.innerHTML = `<span style="font-size:10px;color:#888">N2</span><div class="puyo puyo-${nextPuyoColors[1][1]}"></div><div class="puyo puyo-${nextPuyoColors[1][0]}"></div>`;
-                }
-            };
-        });
-    </script>
+    <!-- index.html内の上書きスクリプトを削除しました。puyoSim.jsの修正が反映されるようになります。 -->
 </body>
 </html>
