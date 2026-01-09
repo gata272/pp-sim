@@ -181,7 +181,7 @@ body {
     background-color: #f4a261; 
 }
 
-.mode-toggle-btn, #reset-button-play, #auto-drop-toggle-button {
+.mode-toggle-btn, .reset-button-edit, #reset-button-play, #auto-drop-toggle-button {
     width: 100%;
     padding: 8px;
     border: none;
@@ -191,7 +191,7 @@ body {
 }
 
 .mode-toggle-btn { background-color: #457b9d; color: white; }
-#reset-button-play { background-color: #e63946; color: white; }
+.reset-button-edit #reset-button-play { background-color: #e63946; color: white; }
 #auto-drop-toggle-button { background-color: #2a9d8f; color: white; }
 
 /* --- モード表示 --- */
