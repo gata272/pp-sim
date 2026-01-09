@@ -21,14 +21,47 @@
     <style>
         #max-chain-button { width: 100%; margin-top: 10px; padding: 10px; background-color: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }
         #ai-button { width: 100%; margin-top: 10px; padding: 10px; background-color: #ff9800; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        
+        /* GitHubバックアップ版のスタイルを統合 */
         .next-puyo-row { display: flex; justify-content: center; gap: 15px; margin-top: 5px; }
-        .next-puyo-slot { display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; min-width: 30px; min-height: 60px; background-color: rgba(0, 0, 0, 0.3); padding: 5px; border-radius: 5px; }
-        .next-puyo-slot .puyo { width: 24px; height: 24px; }
-        #edit-next-list-container { max-height: 200px; overflow-y: auto; margin-top: 10px; background: #1a1a1a; padding: 5px; border: 1px solid #444; text-align: left; }
-        .edit-next-item { display: flex; align-items: center; padding: 2px 5px; border-bottom: 1px solid #333; font-size: 12px; color: #ccc; }
-        .edit-next-label { width: 35px; font-weight: bold; }
-        .edit-next-puyos { display: flex; gap: 4px; margin-left: 10px; }
-        .edit-next-puyos .puyo { width: 16px; height: 16px; border-radius: 50%; }
+        .next-puyo-slot { display: flex; flex-direction: column; gap: 3px; align-items: center; min-width: 30px; }
+        #play-next-info .puyo, #edit-next-info .next-puyo-row .puyo { width: 25px; height: 25px; cursor: pointer; pointer-events: auto; }
+        
+        #edit-next-list-container {
+            max-height: 250px; 
+            overflow-y: auto;
+            padding: 5px; 
+            margin-top: 10px;
+            text-align: left; 
+            border: 1px dashed #555;
+            background-color: #2a2a2a;
+            border-radius: 3px;
+        }
+        .next-puyo-slot-pair {
+            display: flex;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px dashed #444;
+        }
+        .next-puyo-slot-pair span {
+            font-size: 0.8em;
+            width: 35px;
+            text-align: right;
+            color: #ccc;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+        .next-puyo-slot-pair .next-puyo-row {
+            margin: 0; 
+            gap: 8px; 
+            justify-content: flex-start; 
+            flex-grow: 1;
+            padding-left: 10px;
+            display: flex;
+            flex-direction: row; 
+            align-items: center;
+        }
+        #edit-next-list-container .puyo { cursor: pointer; pointer-events: auto; }
     </style>
 </head>
 <body>
