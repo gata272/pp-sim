@@ -1199,24 +1199,13 @@ function renderEditNextPuyos() {
     const createClickHandler = (listIndex, puyoIndex) => {
         return (event) => {
             event.stopPropagation();
-            console.log('Clicked puyo at [' + listIndex + '][' + puyoIndex + '], currentEditColor=' + currentEditColor);
             
-            // エディットパネルが表示されているかどうかを確認
-            const editPanel = document.getElementById('edit-panel');
-            if (!editPanel || editPanel.style.display === 'none') {
-                console.log('Edit panel is not visible');
-                return;
-            }
+            // エディットモードでない場合は何もしない
+            if (gameState !== 'editing') return;
             
-            if (currentEditColor === COLORS.EMPTY) {
-                alert('パレットから色を選んでください');
-                return;
-            }
-            
+            // ぷよの色を変更
             if (editingNextPuyos.length > listIndex) {
-                console.log('Before: editingNextPuyos[' + listIndex + '] = [' + editingNextPuyos[listIndex][0] + ', ' + editingNextPuyos[listIndex][1] + ']');
                 editingNextPuyos[listIndex][puyoIndex] = currentEditColor;
-                console.log('After: editingNextPuyos[' + listIndex + '] = [' + editingNextPuyos[listIndex][0] + ', ' + editingNextPuyos[listIndex][1] + ']');
                 renderEditNextPuyos();
             }
         };
