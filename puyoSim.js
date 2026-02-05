@@ -86,100 +86,7 @@ function checkMobileControlsVisibility() {
 }
 
 
-function initializeGame() {
-    createBoardDOM(); 
-    
-    for (let y = 0; y < HEIGHT; y++) {
-        board[y] = Array(WIDTH).fill(COLORS.EMPTY);
-    }
 
-    score = 0;
-    chainCount = 0;
-    gameState = 'playing';
-    
-    historyStack = []; 
-    redoStack = [];
-
-    nextPuyoColors = [];
-    for (let i = 0; i < MAX_NEXT_PUYOS; i++) {
-        nextPuyoColors.push(getRandomPair());
-    }
-    editingNextPuyos = JSON.parse(JSON.stringify(nextPuyoColors));
-    currentEditColor = COLORS.EMPTY; 
-
-    const modeToggleButton = document.querySelector('.mode-toggle-btn');
-    if (modeToggleButton) modeToggleButton.textContent = 'edit';
-    const infoPanel = document.getElementById('info-panel');
-    if (infoPanel) infoPanel.classList.remove('edit-mode-active');
-    
-    const autoDropButton = document.getElementById('auto-drop-toggle-button');
-    if (autoDropButton) {
-        if (autoDropEnabled) {
-            autoDropButton.textContent = '自動落下: ON';
-            autoDropButton.classList.remove('disabled');
-        } else {
-            autoDropButton.textContent = '自動落下: OFF';
-            autoDropButton.classList.add('disabled');
-        }
-    }
-
-    generateNewPuyo(); 
-    startPuyoDropLoop(); 
-    
-    updateUI();
-    
-    if (!document.initializedKeyHandler) {
-        document.addEventListener('keydown', handleInput);
-        
-        document.addEventListener('keydown', (event) => {
-            const key = event.key.toLowerCase();
-            if (key === 'u') { 
-                event.preventDefault();
-                undoMove();
-            } else if (key === 'y') { 
-                event.preventDefault();
-                redoMove();
-            } else if (key === 'r') { 
-                event.preventDefault();
-                resetGame();
-            } else if (key === 'e') { 
-                event.preventDefault();
-                toggleMode();
-            }
-        });
-
-        const btnLeft = document.getElementById('btn-left');
-        const btnRight = document.getElementById('btn-right');
-        const btnRotateCW = document.getElementById('btn-rotate-cw'); 
-        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); 
-        const btnHardDrop = document.getElementById('btn-hard-drop');
-        const btnSoftDrop = document.getElementById('btn-soft-drop');
-
-        if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
-        if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
-        
-        if (btnRotateCW) btnRotateCW.addEventListener('click', window.rotatePuyoCW); 
-        if (btnRotateCCW) btnRotateCCW.addEventListener('click', window.rotatePuyoCCW); 
-        
-        if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
-        
-        if (btnSoftDrop) btnSoftDrop.addEventListener('click', () => {
-            if (gameState === 'playing') {
-                clearInterval(dropTimer);
-                movePuyo(0, -1);
-                if (autoDropEnabled) startPuyoDropLoop();
-            }
-        });
-        
-        setupEditModeListeners(); 
-        document.initializedKeyHandler = true;
-    }
-    
-    checkMobileControlsVisibility();
-    renderBoard();
-    
-    saveState(false); 
-}
 
 window.resetGame = function() { 
     clearInterval(dropTimer); 
@@ -527,8 +434,23 @@ window.clearEditNext = function() {
     if (gameState !== 'editing') return;
     
     editingNextPuyos = [];
-    for (let i = 0; i < MAX_NEXT_PUYOS; i++) {
-        editingNextPuyos.push(getRandomPair());
+    // 最初のペアは無条件で生成
+    editingNextPuyos.push(getRandomPair());
+
+    // 2番目以降のペアは、直前のペアとの組み合わせで4色にならないように生成
+    for (let i = 1; i < MAX_NEXT_PUYOS; i++) {
+        let newPair;
+        let retries = 0;
+        const MAX_RETRIES = 100; // 無限ループ回避
+        do {
+            newPair = getRandomPair();
+            retries++;
+            if (retries > MAX_RETRIES) {
+                console.warn("clearEditNext: Max retries reached for next puyo generation.");
+                break;
+            }
+        } while (hasFourUniqueColors(editingNextPuyos[i-1], newPair));
+        editingNextPuyos.push(newPair);
     }
     renderEditNextPuyos(); 
     alert('ネクストぷよリストをランダムで再生成しました。');
@@ -544,9 +466,128 @@ function getRandomPair() {
     return [getRandomColor(), getRandomColor()];
 }
 
+// 2つのぷよペアが合計で4つの異なる色を持つかどうかをチェックするヘルパー関数
+function hasFourUniqueColors(pair1, pair2) {
+    if (!pair1 || !pair2) return false;
+    const allColors = new Set([...pair1, ...pair2]);
+    return allColors.size === 4;
+}
+
+function initializeGame() {
+    createBoardDOM(); 
+    
+    for (let y = 0; y < HEIGHT; y++) {
+        board[y] = Array(WIDTH).fill(COLORS.EMPTY);
+    }
+
+    score = 0;
+    chainCount = 0;
+    gameState = 'playing';
+    
+    historyStack = []; 
+    redoStack = [];
+
+    nextPuyoColors = [];
+    // 最初のペアは無条件で生成
+    nextPuyoColors.push(getRandomPair());
+
+    // 2番目以降のペアは、直前のペアとの組み合わせで4色にならないように生成
+    for (let i = 1; i < MAX_NEXT_PUYOS; i++) {
+        let newPair;
+        let retries = 0;
+        const MAX_RETRIES = 100; // 無限ループ回避
+        do {
+            newPair = getRandomPair();
+            retries++;
+            if (retries > MAX_RETRIES) {
+                console.warn("initializeGame: Max retries reached for next puyo generation.");
+                break;
+            }
+        } while (hasFourUniqueColors(nextPuyoColors[i-1], newPair));
+        nextPuyoColors.push(newPair);
+    }
+
+    editingNextPuyos = JSON.parse(JSON.stringify(nextPuyoColors));
+    currentEditColor = COLORS.EMPTY; 
+
+    const modeToggleButton = document.querySelector('.mode-toggle-btn');
+    if (modeToggleButton) modeToggleButton.textContent = 'edit';
+    const infoPanel = document.getElementById('info-panel');
+    if (infoPanel) infoPanel.classList.remove('edit-mode-active');
+    
+    const autoDropButton = document.getElementById('auto-drop-toggle-button');
+    if (autoDropButton) {
+        if (autoDropEnabled) {
+            autoDropButton.textContent = '自動落下: ON';
+            autoDropButton.classList.remove('disabled');
+        } else {
+            autoDropButton.textContent = '自動落下: OFF';
+            autoDropButton.classList.add('disabled');
+        }
+    }
+
+    generateNewPuyo(); 
+    startPuyoDropLoop(); 
+    
+    updateUI();
+    
+    if (!document.initializedKeyHandler) {
+        document.addEventListener('keydown', handleInput);
+        
+        document.addEventListener('keydown', (event) => {
+            const key = event.key.toLowerCase();
+            if (key === 'u') { 
+                event.preventDefault();
+                undoMove();
+            } else if (key === 'y') { 
+                event.preventDefault();
+                redoMove();
+            } else if (key === 'r') { 
+                event.preventDefault();
+                resetGame();
+            } else if (key === 'e') { 
+                event.preventDefault();
+                toggleMode();
+            }
+        });
+
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        const btnRotateCW = document.getElementById('btn-rotate-cw'); 
+        const btnRotateCCW = document.getElementById('btn-rotate-ccw'); 
+        const btnHardDrop = document.getElementById('btn-hard-drop');
+        const btnSoftDrop = document.getElementById('btn-soft-drop');
+
+        if (btnLeft) btnLeft.addEventListener('click', () => movePuyo(-1, 0));
+        if (btnRight) btnRight.addEventListener('click', () => movePuyo(1, 0));
+        
+        if (btnRotateCW) btnRotateCW.addEventListener('click', window.rotatePuyoCW); 
+        if (btnRotateCCW) btnRotateCCW.addEventListener('click', window.rotatePuyoCCW); 
+        
+        if (btnHardDrop) btnHardDrop.addEventListener('click', hardDrop);
+        
+        if (btnSoftDrop) btnSoftDrop.addEventListener('click', () => {
+            if (gameState === 'playing') {
+                clearInterval(dropTimer);
+                movePuyo(0, -1);
+                if (autoDropEnabled) startPuyoDropLoop();
+            }
+        });
+        
+        setupEditModeListeners(); 
+        document.initializedKeyHandler = true;
+    }
+    
+    checkMobileControlsVisibility();
+    renderBoard();
+    
+    saveState(false); 
+}
+
 function generateNewPuyo() {
     if (gameState !== 'playing') return;
 
+    // 通常のネクスト生成時は制限なし（元の仕様に戻す）
     while (nextPuyoColors.length < MAX_NEXT_PUYOS) {
         nextPuyoColors.push(getRandomPair());
     }
