@@ -43,7 +43,8 @@ let dropTimer = null;
 let autoDropEnabled = false; 
 
 // 連鎖速度設定
-let chainWaitTime = 300; // 連鎖間の待機時間 (ms) 
+let gravityWaitTime = 300; // 消滅から落下までの待機時間 (ms)
+let chainWaitTime = 300;   // 着地から次の連鎖判定までの待機時間 (ms)
 
 // クイックターン用変数
 let lastFailedRotation = {
@@ -111,9 +112,17 @@ window.toggleSettingMode = function() {
     checkMobileControlsVisibility();
 }
 
-window.updateChainSpeed = function(value) {
+window.updateGravityWait = function(value) {
+    gravityWaitTime = parseInt(value);
+    const display = document.getElementById('gravity-wait-value');
+    if (display) {
+        display.textContent = gravityWaitTime + 'ms';
+    }
+}
+
+window.updateChainWait = function(value) {
     chainWaitTime = parseInt(value);
-    const display = document.getElementById('chain-speed-value');
+    const display = document.getElementById('chain-wait-value');
     if (display) {
         display.textContent = chainWaitTime + 'ms';
     }
@@ -966,13 +975,15 @@ function clearGarbagePuyos(erasedCoords) {
 
 
 async function runChain() {
+    // 1. 自由落下
     gravity(); 
     renderBoard(); 
-    await new Promise(resolve => setTimeout(resolve, chainWaitTime));
     
+    // 2. 連結判定（まず連鎖が起きるか確認）
     const groups = findConnectedPuyos();
 
     if (groups.length === 0) {
+        // 0連鎖の場合：待機時間なしで即座に操作可能に
         if (checkBoardEmpty()) {
             score += 3600; 
             updateUI(); 
@@ -980,7 +991,6 @@ async function runChain() {
         
         const gameOverLineY = HEIGHT - 3; 
         const checkX = 2; 
-        
         const isGameOver = board[gameOverLineY][checkX] !== COLORS.EMPTY;
         
         if (isGameOver) {
@@ -992,6 +1002,7 @@ async function runChain() {
             return;
         }
         
+        // 0連鎖時は待機なしで即座に操作可能に
         gameState = 'playing';
         generateNewPuyo(); 
         startPuyoDropLoop(); 
@@ -999,14 +1010,16 @@ async function runChain() {
         renderBoard();
         return;
     }
+    
+    // 3. 連鎖が起きる場合：着地後の待機（連鎖待ち時間）
+    await new Promise(resolve => setTimeout(resolve, chainWaitTime));
 
+    // 4. 消滅処理
     chainCount++;
-
     let chainScore = calculateScore(groups, chainCount);
     score += chainScore;
 
     let erasedCoords = [];
-    
     groups.forEach(({ group }) => {
         group.forEach(({ x, y }) => {
             board[y][x] = COLORS.EMPTY; 
@@ -1019,8 +1032,10 @@ async function runChain() {
     renderBoard(); 
     updateUI();
 
-    await new Promise(resolve => setTimeout(resolve, chainWaitTime));
+    // 5. 消滅後の待機（重力待ち時間）
+    await new Promise(resolve => setTimeout(resolve, gravityWaitTime));
 
+    // 6. 次の連鎖ステップへ
     runChain();
 }
 
