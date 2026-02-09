@@ -42,6 +42,9 @@ let dropInterval = 1000; // 1秒ごとに落下
 let dropTimer = null; 
 let autoDropEnabled = false; 
 
+// 連鎖速度設定
+let chainWaitTime = 300; // 連鎖間の待機時間 (ms) 
+
 // クイックターン用変数
 let lastFailedRotation = {
     type: null, // 'CW' or 'CCW'
@@ -93,6 +96,29 @@ window.resetGame = function() {
     initializeGame();
 }
 
+let previousGameState = 'playing';
+window.toggleSettingMode = function() {
+    const overlay = document.getElementById('setting-overlay');
+    
+    if (gameState !== 'setting') {
+        previousGameState = gameState;
+        gameState = 'setting';
+        overlay.style.display = 'flex';
+    } else {
+        gameState = previousGameState;
+        overlay.style.display = 'none';
+    }
+    checkMobileControlsVisibility();
+}
+
+window.updateChainSpeed = function(value) {
+    chainWaitTime = parseInt(value);
+    const display = document.getElementById('chain-speed-value');
+    if (display) {
+        display.textContent = chainWaitTime + 'ms';
+    }
+}
+
 window.toggleMode = function() {
     const infoPanel = document.getElementById('info-panel');
     const modeToggleButton = document.querySelector('.mode-toggle-btn');
@@ -116,24 +142,18 @@ window.toggleMode = function() {
     } else if (gameState === 'editing') {
         gameState = 'playing';
         infoPanel.classList.remove('edit-mode-active');
-        document.body.classList.remove('edit-mode-active'); 
+        document.body.classList.remove('edit-mode-active');
         
         if (modeToggleButton) modeToggleButton.textContent = 'edit';
         
         checkMobileControlsVisibility();
-
         boardElement.removeEventListener('click', handleBoardClickEditMode);
         
-        gravity(); 
+        if (autoDropEnabled) {
+            startPuyoDropLoop();
+        }
         
-        nextPuyoColors = JSON.parse(JSON.stringify(editingNextPuyos));
-        
-        currentPuyo = null; 
-        generateNewPuyo(); 
-        startPuyoDropLoop(); 
-        
-        saveState();
-        renderBoard();
+        renderBoard(); 
     }
 }
 
@@ -948,7 +968,7 @@ function clearGarbagePuyos(erasedCoords) {
 async function runChain() {
     gravity(); 
     renderBoard(); 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, chainWaitTime));
     
     const groups = findConnectedPuyos();
 
@@ -999,7 +1019,7 @@ async function runChain() {
     renderBoard(); 
     updateUI();
 
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, chainWaitTime));
 
     runChain();
 }
