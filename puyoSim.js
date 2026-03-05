@@ -1623,3 +1623,131 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 })();
+// ===== 操作中のぷよを1段上げる機能（完全対応版） =====
+(function() {
+    'use strict';
+    
+    try {
+        window.raisePuyoOneRow = function() {
+            try {
+                console.log('=== raisePuyoOneRow 実行開始 ===');
+                
+                if (typeof gameState === 'undefined') {
+                    console.error('gameState が未定義です');
+                    alert('エラー: ゲーム状態を取得できません');
+                    return;
+                }
+                
+                console.log('gameState:', gameState);
+                
+                if (gameState !== 'playing') {
+                    alert('プレイモード中のみ使用できます。\n現在の状態: ' + gameState);
+                    return;
+                }
+                
+                if (typeof currentPuyo === 'undefined' || !currentPuyo) {
+                    alert('操作中のぷよがありません。');
+                    return;
+                }
+                
+                console.log('currentPuyo:', currentPuyo);
+                
+                if (typeof currentPuyo.mainX === 'undefined' || 
+                    typeof currentPuyo.mainY === 'undefined' || 
+                    typeof currentPuyo.rotation === 'undefined') {
+                    alert('操作中のぷよの構造が不正です。');
+                    return;
+                }
+                
+                if (typeof board === 'undefined') {
+                    console.error('board が未定義です');
+                    alert('エラー: 盤面データを取得できません');
+                    return;
+                }
+                
+                if (typeof COLORS === 'undefined') {
+                    console.error('COLORS が未定義です');
+                    alert('エラー: 色定数を取得できません');
+                    return;
+                }
+                
+                const mainX = currentPuyo.mainX;
+                const mainY = currentPuyo.mainY;
+                const rotation = currentPuyo.rotation;
+                
+                let subX = mainX;
+                let subY = mainY;
+                
+                if (rotation === 0) subY = mainY + 1;
+                else if (rotation === 1) subX = mainX - 1;
+                else if (rotation === 2) subY = mainY - 1;
+                else if (rotation === 3) subX = mainX + 1;
+                
+                console.log('現在位置: main(' + mainX + ',' + mainY + '), sub(' + subX + ',' + subY + '), rotation=' + rotation);
+                
+                const newMainY = mainY + 1;
+                const newSubY = subY + 1;
+                
+                console.log('移動先: main(' + mainX + ',' + newMainY + '), sub(' + subX + ',' + newSubY + ')');
+                
+                if (newMainY > 14 || newSubY > 14) {
+                    alert('これ以上上に移動できません。');
+                    return;
+                }
+                
+                let canMove = true;
+                
+                if (newMainY < 13) {
+                    if (board[newMainY][mainX] !== COLORS.EMPTY) {
+                        console.log('main移動先に障害物: board[' + newMainY + '][' + mainX + '] = ' + board[newMainY][mainX]);
+                        canMove = false;
+                    }
+                }
+                
+                if (newSubY < 13) {
+                    if (board[newSubY][subX] !== COLORS.EMPTY) {
+                        console.log('sub移動先に障害物: board[' + newSubY + '][' + subX + '] = ' + board[newSubY][subX]);
+                        canMove = false;
+                    }
+                }
+                
+                if (!canMove) {
+                    alert('移動先にぷよがあるため、上に移動できません。');
+                    return;
+                }
+                
+                currentPuyo.mainY = newMainY;
+                
+                console.log('移動完了: 新しい位置 mainY=' + newMainY);
+                
+                if (typeof renderBoard === 'function') {
+                    renderBoard();
+                    console.log('renderBoard() 実行');
+                } else {
+                    console.error('renderBoard 関数が未定義です');
+                }
+                
+                console.log('=== raisePuyoOneRow 実行完了 ===');
+                
+            } catch (e) {
+                console.error('ぷよを上げる処理でエラー:', e);
+                alert('エラーが発生しました: ' + e.message + '\n\nコンソールを確認してください（F12）');
+            }
+        };
+
+        document.addEventListener('keydown', function(e) {
+            try {
+                if (typeof gameState !== 'undefined' && gameState === 'playing' && e.key === 'u') {
+                    window.raisePuyoOneRow();
+                }
+            } catch (err) {
+                console.error('キーボードイベントエラー:', err);
+            }
+        });
+        
+        console.log('ぷよを上げる機能（完全対応版）を読み込みました');
+        
+    } catch (e) {
+        console.error('ぷよを上げる機能の初期化エラー:', e);
+    }
+})();
