@@ -1,4 +1,11 @@
-// シュミレーションシステム
+// ぷよぷよシミュレーション（おじゃま対応 完全版）
+// - NextQueue方式
+// - 連鎖安全化
+// - Undo / Redo
+// - Edit / Play
+// - おじゃまぷよ送受信・相殺・落下
+// - オンライン同期用フック
+// - 連戦用フック追加
 
 // 盤面サイズ
 const WIDTH = 6;
@@ -24,22 +31,40 @@ const BONUS_TABLE = {
     COLOR: [0, 0, 3, 6, 12]
 };
 
-// 履歴管理パラメータ（変更：300）
-const MAX_HISTORY_SIZE = 300; // 履歴上限（メモリ対策のため上限を設ける）
+// 履歴管理パラメータ
+const MAX_HISTORY_SIZE = 300;
+
+// おじゃまボーナス
+const ALL_CLEAR_SCORE_BONUS = 2100;
+
+// PT2寄せの換算・制限
+const NUISANCE_TARGET_POINTS = 70;
+const MAX_OJAMA_DROP_PER_TURN = 30;
+
+// NEXTは128組で色を均等にする
+const NEXT_QUEUE_BALANCE_BATCH_SIZE = 128;
+const NEXT_QUEUE_COLORS = [COLORS.RED, COLORS.BLUE, COLORS.GREEN, COLORS.YELLOW];
+
+// ゲームオーバー表示用
+const BOARD_GAMEOVER_CLASS = 'board-gameover';
 
 // ゲームの状態管理
 let board = [];
 let currentPuyo = null;
-// nextQueue / queueIndex を導入（NextQueue方式）
 let nextQueue = [];
 let queueIndex = 0;
 
 let score = 0;
 let chainCount = 0;
 let gameState = 'playing'; // 'playing', 'chaining', 'gameover', 'editing', 'setting'
-let currentEditColor = COLORS.EMPTY; // エディットモードで選択中の色
-let editingNextPuyos = []; // エディットモード用 NEXT リスト
+let currentEditColor = COLORS.EMPTY;
+let editingNextPuyos = [];
 let nextEdited = false;
+
+// おじゃま管理
+let pendingOjama = 0; // 受け取って待機中のおじゃま（個数）
+let chainAttackScoreBuffer = 0; // 現在の連鎖で発生した攻撃の raw score
+let nuisancePointBuffer = 0; // 端数持ち越し
 
 // 履歴スタック（Undo / Redo）
 let historyStack = [];
@@ -58,7 +83,7 @@ let chainWaitTime = 300;
 let lastFailedRotation = { type: null, timestamp: 0 };
 const QUICK_TURN_WINDOW = 300; // ms
 
-// 連鎖非同期制御（追加）
+// 連鎖非同期制御
 let chainTimer = null;
 let chainAbortFlag = false;
 
@@ -66,14 +91,61 @@ let chainAbortFlag = false;
 function copyBoard(srcBoard) {
     return srcBoard.map(row => row.slice());
 }
+
 function copyNextQueue(srcQueue) {
     return srcQueue.map(pair => pair.slice());
+}
+
+function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+function hasFourUniqueColorsAcrossFirstTwoPairs(batch) {
+    if (!batch || batch.length < 2) return false;
+    const s = new Set([...batch[0], ...batch[1]]);
+    return s.size === 4;
+}
+
+// 128組分の次ぷよを、4色64個ずつ均等になるように作る
+function buildBalancedNextBatch(batchPairs = NEXT_QUEUE_BALANCE_BATCH_SIZE) {
+    const totalPuyos = batchPairs * 2;
+    const perColor = totalPuyos / NEXT_QUEUE_COLORS.length;
+
+    const pool = [];
+    NEXT_QUEUE_COLORS.forEach(color => {
+        for (let i = 0; i < perColor; i++) {
+            pool.push(color);
+        }
+    });
+
+    shuffleArray(pool);
+
+    const batch = [];
+    for (let i = 0; i < pool.length; i += 2) {
+        batch.push([pool[i], pool[i + 1]]);
+    }
+    return batch;
+}
+
+function appendBalancedNextBatch() {
+    let batch = buildBalancedNextBatch();
+    let guard = 0;
+
+    while (hasFourUniqueColorsAcrossFirstTwoPairs(batch) && guard < 100) {
+        batch = buildBalancedNextBatch();
+        guard++;
+    }
+
+    nextQueue.push(...batch);
 }
 
 // sleep helper that registers chainTimer so it can be cancelled
 function sleep(ms) {
     return new Promise(resolve => {
-        // clear previous timer reference (safety)
         if (chainTimer) {
             clearTimeout(chainTimer);
             chainTimer = null;
@@ -86,42 +158,169 @@ function sleep(ms) {
 }
 
 function stopChain() {
-    // 連鎖中タイマーをキャンセルし、フラグを立てる
     if (chainTimer) {
         clearTimeout(chainTimer);
         chainTimer = null;
     }
     chainAbortFlag = true;
+    chainAttackScoreBuffer = 0;
+}
+
+function updateOjamaUI() {
+    const el = document.getElementById('ojama-count');
+    if (el) el.textContent = pendingOjama;
+}
+
+// score をおじゃま個数へ換算
+function scoreToOjama(scoreValue) {
+    return Math.floor(Math.max(0, scoreValue) / NUISANCE_TARGET_POINTS);
+}
+
+function flushChainOjamaBuffer() {
+    nuisancePointBuffer += chainAttackScoreBuffer / NUISANCE_TARGET_POINTS;
+    const attackOjama = Math.floor(nuisancePointBuffer);
+    nuisancePointBuffer -= attackOjama;
+
+    const outgoingOjama = consumeOjamaForAttack(attackOjama);
+    chainAttackScoreBuffer = 0;
+
+    if (outgoingOjama > 0 && typeof window.sendOjama === 'function') {
+        window.sendOjama(outgoingOjama);
+    }
+
+    return outgoingOjama;
+}
+
+// online.js から受け取る入口
+window.addIncomingOjama = function(amount) {
+    const n = Math.max(0, Math.floor(Number(amount) || 0));
+    pendingOjama += n;
+    updateOjamaUI();
+};
+
+// 互換用
+window.receiveOjama = window.addIncomingOjama;
+
+// おじゃま攻撃分を自分の保留おじゃまで相殺して、残りを返す
+function consumeOjamaForAttack(attackOjama) {
+    const attack = Math.max(0, Math.floor(Number(attackOjama) || 0));
+    const canceled = Math.min(pendingOjama, attack);
+    pendingOjama -= canceled;
+    updateOjamaUI();
+    return attack - canceled;
+}
+
+// おじゃまを盤面に積む
+function dropOjamaToBoard(count) {
+    const amount = Math.max(0, Math.min(MAX_OJAMA_DROP_PER_TURN, Math.floor(Number(count) || 0)));
+    if (amount === 0) return true;
+
+    const emptyCells = board.reduce((sum, row) => sum + row.filter(c => c === COLORS.EMPTY).length, 0);
+    if (amount > emptyCells) {
+        return false;
+    }
+
+    const fullRounds = Math.floor(amount / WIDTH);
+    const remainder = amount % WIDTH;
+
+    const placeOne = (x) => {
+        let stackHeight = 0;
+        for (let y = 0; y < HEIGHT; y++) {
+            if (board[y][x] !== COLORS.EMPTY) stackHeight++;
+        }
+        if (stackHeight >= HEIGHT) return false;
+        board[stackHeight][x] = COLORS.GARBAGE;
+        return true;
+    };
+
+    for (let round = 0; round < fullRounds; round++) {
+        const cols = Array.from({ length: WIDTH }, (_, i) => i);
+        shuffleArray(cols);
+        for (const x of cols) {
+            if (!placeOne(x)) return false;
+        }
+    }
+
+    if (remainder > 0) {
+        const cols = Array.from({ length: WIDTH }, (_, i) => i);
+        shuffleArray(cols);
+        for (let i = 0; i < remainder; i++) {
+            if (!placeOne(cols[i])) return false;
+        }
+    }
+
+    gravity();
+    return true;
+}
+
+function applyPendingOjamaToBoard() {
+    if (pendingOjama <= 0) return true;
+
+    const amount = Math.min(MAX_OJAMA_DROP_PER_TURN, pendingOjama);
+    pendingOjama -= amount;
+    updateOjamaUI();
+
+    const ok = dropOjamaToBoard(amount);
+    renderBoard();
+    updateUI();
+
+    if (!ok) {
+        triggerGameOver();
+        return false;
+    }
+    return true;
+}
+
+function triggerGameOver() {
+    if (gameState === 'gameover') return;
+
+    gameState = 'gameover';
+    document.body.classList.add(BOARD_GAMEOVER_CLASS);
+    clearInterval(dropTimer);
+
+    updateUI();
+    renderBoard();
+
+    // ゲームオーバー状態も履歴に保存
+    saveState(true);
+
+    if (typeof window.notifyGameOver === 'function') {
+        window.notifyGameOver();
+    } else {
+        alert('ゲームオーバーです！');
+    }
 }
 
 // ---------- NextQueue 管理 ----------
 function generateInitialNextQueue() {
     nextQueue = [];
     queueIndex = 0;
-    // ここでは pair の内部形式を [sub, main] とする（index0 = sub(上), index1 = main(下)）
-    const initialCount = Math.max(MAX_NEXT_PUYOS, 100);
-    for (let i = 0; i < initialCount; i++) {
-        nextQueue.push(getRandomPair());
+
+    let batch = buildBalancedNextBatch();
+    let guard = 0;
+
+    while (hasFourUniqueColorsAcrossFirstTwoPairs(batch) && guard < 100) {
+        batch = buildBalancedNextBatch();
+        guard++;
     }
+
+    nextQueue.push(...batch);
 }
+
 function ensureNextQueueCapacity() {
-    // queueIndex が末尾に近づいたら補充
-    const threshold = 40; // 残り少なくなったら補充（調整可）
-    if (nextQueue.length - queueIndex < threshold) {
-        for (let i = 0; i < 100; i++) {
-            nextQueue.push(getRandomPair());
-        }
+    const threshold = 40;
+    while (nextQueue.length - queueIndex < threshold) {
+        appendBalancedNextBatch();
     }
 }
+
 function consumeNextPair() {
     if (queueIndex >= nextQueue.length) {
-        // もし何らかの理由で尽きたら補充
-        for (let i = 0; i < 100; i++) nextQueue.push(getRandomPair());
+        appendBalancedNextBatch();
     }
     const pair = nextQueue[queueIndex];
     queueIndex++;
     ensureNextQueueCapacity();
-    // pair の順は [sub, main]（上, 下）
     return [pair[0], pair[1]];
 }
 
@@ -131,7 +330,6 @@ function createBoardDOM() {
     if (!boardElement) return;
     boardElement.innerHTML = '';
 
-    // DOMは y = HEIGHT-1 (top) から 0 (bottom) の順で作る（描画上上から下へ）
     for (let y = HEIGHT - 1; y >= 0; y--) {
         for (let x = 0; x < WIDTH; x++) {
             const cell = document.createElement('div');
@@ -152,7 +350,6 @@ function renderBoard() {
     const boardElement = document.getElementById('puyo-board');
     if (!boardElement) return;
 
-    // 既存DOMを使って色だけ差し替える方が望ましいが、ここでは確実性優先で再構築（将来の最適化候補）
     boardElement.innerHTML = '';
     for (let y = HEIGHT - 1; y >= 0; y--) {
         for (let x = 0; x < WIDTH; x++) {
@@ -169,7 +366,6 @@ function renderBoard() {
         }
     }
 
-    // 盤面のぷよを描画（board[y][x] の y=0 が一番下）
     for (let y = 0; y < HEIGHT; y++) {
         for (let x = 0; x < WIDTH; x++) {
             const cellElement = document.getElementById('cell-' + x + '-' + y);
@@ -182,12 +378,10 @@ function renderBoard() {
         }
     }
 
-    // 操作中のぷよとゴースト
     if (currentPuyo && gameState === 'playing') {
         renderCurrentPuyo();
     }
 
-    // NEXT 表示
     if (gameState === 'playing') {
         renderPlayNextPuyo();
     } else if (gameState === 'editing') {
@@ -229,7 +423,6 @@ function renderCurrentPuyo() {
 }
 
 function renderPlayNextPuyo() {
-    // NextQueue方式に合わせる（queueIndex を基準に表示）
     const next1Element = document.getElementById('next-puyo-1');
     const next2Element = document.getElementById('next-puyo-2');
     if (!next1Element || !next2Element) return;
@@ -240,7 +433,6 @@ function renderPlayNextPuyo() {
         return el;
     };
 
-    // show next at queueIndex (NEXT1) and queueIndex+1 (NEXT2)
     const pairs = [
         nextQueue[queueIndex] || [COLORS.EMPTY, COLORS.EMPTY],
         nextQueue[queueIndex + 1] || [COLORS.EMPTY, COLORS.EMPTY]
@@ -250,19 +442,18 @@ function renderPlayNextPuyo() {
         slot.innerHTML = '';
         const pair = pairs[idx];
         if (pair) {
-            // pair is [sub, main] by construction earlier; show sub (top) then main (bottom)
             slot.appendChild(createPuyo(pair[1]));
             slot.appendChild(createPuyo(pair[0]));
         }
     });
 }
 
-// ---------- UI 更新 ----------
 function updateUI() {
     const scoreElement = document.getElementById('score');
     const chainElement = document.getElementById('chain-count');
     if (scoreElement) scoreElement.textContent = score;
     if (chainElement) chainElement.textContent = chainCount;
+    updateOjamaUI();
     updateHistoryButtons();
 }
 
@@ -279,13 +470,11 @@ window.copyStageCode = function() {
             dataArray.push(board[y][x]);
         }
     }
-    // editingNextPuyos は編集用 NEXT（pair = [sub, main]）
     editingNextPuyos.forEach(pair => {
         dataArray.push(pair[0]); // sub
         dataArray.push(pair[1]); // main
     });
 
-    // 3bit -> バイナリ -> バイト列 -> Base64
     let binaryString = "";
     dataArray.forEach(color => {
         binaryString += color.toString(2).padStart(3, '0');
@@ -334,7 +523,6 @@ window.loadStageCode = function() {
             }
         }
 
-        // 必須データ数チェック（board + MAX_NEXT_PUYOS*2）
         const required = HEIGHT * WIDTH + MAX_NEXT_PUYOS * 2;
         if (dataArray.length < required) {
             throw new Error("データが不足しています。");
@@ -350,10 +538,9 @@ window.loadStageCode = function() {
 
         editingNextPuyos = [];
         for (let i = 0; i < MAX_NEXT_PUYOS; i++) {
-            // dataArray に push した順序に合わせて、ここでは sub, main の順で復元する
-            const subColor = dataArray[idx++];   // 上のぷよ
-            const mainColor = dataArray[idx++];  // 下のぷよ
-            editingNextPuyos.push([subColor, mainColor]); // [sub, main]
+            const subColor = dataArray[idx++];
+            const mainColor = dataArray[idx++];
+            editingNextPuyos.push([subColor, mainColor]);
         }
 
         renderBoard();
@@ -366,7 +553,6 @@ window.loadStageCode = function() {
 };
 
 // ---------- 履歴（Undo / Redo） ----------
-// saveState: 連鎖終了時のみ呼ぶことで「1手=1履歴」を実現する設計
 function saveState(clearRedoStack = true) {
     const state = {
         board: copyBoard(board),
@@ -374,6 +560,9 @@ function saveState(clearRedoStack = true) {
         queueIndex: queueIndex,
         score: score,
         chainCount: chainCount,
+        pendingOjama: pendingOjama,
+        nuisancePointBuffer: nuisancePointBuffer,
+        gameState: gameState,
         currentPuyo: currentPuyo ? {
             mainColor: currentPuyo.mainColor,
             subColor: currentPuyo.subColor,
@@ -385,7 +574,6 @@ function saveState(clearRedoStack = true) {
 
     historyStack.push(state);
 
-    // 履歴上限を守る（古いものから削る）
     while (historyStack.length > MAX_HISTORY_SIZE) {
         historyStack.shift();
     }
@@ -397,7 +585,6 @@ function saveState(clearRedoStack = true) {
 function restoreState(state) {
     if (!state) return;
 
-    // stop any running chain
     stopChain();
 
     board = copyBoard(state.board);
@@ -405,6 +592,9 @@ function restoreState(state) {
     queueIndex = state.queueIndex;
     score = state.score;
     chainCount = state.chainCount;
+    pendingOjama = state.pendingOjama || 0;
+    nuisancePointBuffer = state.nuisancePointBuffer || 0;
+    updateOjamaUI();
 
     if (state.currentPuyo) {
         currentPuyo = { ...state.currentPuyo };
@@ -412,17 +602,24 @@ function restoreState(state) {
         currentPuyo = null;
     }
 
-    gameState = 'playing';
+    gameState = state.gameState || 'playing';
+    document.body.classList.toggle(BOARD_GAMEOVER_CLASS, gameState === 'gameover');
+
     clearInterval(dropTimer);
 
-    // NOTE: 重要 — ここで generateNewPuyo() を自動呼び出ししない（履歴復元時の不整合対策）
-    // 代わりに、復元後は盤面を安定化して連鎖判定を行う
+    if (gameState === 'gameover') {
+        updateUI();
+        renderBoard();
+        return;
+    }
+
     gravity();
 
     const groups = findConnectedPuyos();
     if (groups.length > 0) {
         gameState = 'chaining';
         chainCount = 0;
+        chainAttackScoreBuffer = 0;
         runChain();
     } else {
         startPuyoDropLoop();
@@ -436,7 +633,6 @@ window.undoMove = function() {
     if (gameState !== 'playing' && gameState !== 'chaining' && gameState !== 'gameover') return;
     if (historyStack.length <= 1) return;
 
-    // 連鎖中タイマーを止めておく
     stopChain();
 
     const currentState = historyStack.pop();
@@ -450,7 +646,6 @@ window.redoMove = function() {
     if (gameState !== 'playing' && gameState !== 'chaining' && gameState !== 'gameover') return;
     if (redoStack.length === 0) return;
 
-    // 連鎖中タイマーを止めておく
     stopChain();
 
     const nextState = redoStack.pop();
@@ -520,12 +715,9 @@ function handleBoardClickEditMode(event) {
 
 window.applyNextPuyos = function() {
     if (gameState === 'editing') {
-        // editingNextPuyos は [ [sub, main], ... ] の配列になっている前提
-        // nextQueue に丸ごと置き換えて queueIndex をリセットする（編集結果を即適用）
         nextQueue = copyNextQueue(editingNextPuyos.slice(0, Math.max(editingNextPuyos.length, 1)));
         nextEdited = true;
         queueIndex = 0;
-        // ensure capacity after replacement
         ensureNextQueueCapacity();
         alert('ネクストぷよの設定を保存しました。プレイモードで適用されます。');
     }
@@ -545,7 +737,7 @@ window.clearEditNext = function() {
                 console.warn("clearEditNext: Max retries reached.");
                 break;
             }
-        } while (hasFourUniqueColors(editingNextPuyos[i-1], newPair));
+        } while (hasFourUniqueColorsAcrossFirstTwoPairs([editingNextPuyos[i - 1], newPair]));
         editingNextPuyos.push(newPair);
     }
     renderEditNextPuyos();
@@ -558,31 +750,26 @@ function getRandomColor() {
 }
 
 function getRandomPair() {
-    // returns [sub, main]
     return [getRandomColor(), getRandomColor()];
 }
 
-function hasFourUniqueColors(pair1, pair2) {
-    if (!pair1 || !pair2) return false;
-    const s = new Set([...pair1, ...pair2]);
-    return s.size === 4;
-}
-
 let _initializedOnce = false;
+
 function initializeGame() {
     createBoardDOM();
     for (let y = 0; y < HEIGHT; y++) board[y] = Array(WIDTH).fill(COLORS.EMPTY);
 
     score = 0;
     chainCount = 0;
+    pendingOjama = 0;
+    chainAttackScoreBuffer = 0;
+    nuisancePointBuffer = 0;
+    updateOjamaUI();
+
     gameState = 'playing';
+    document.body.classList.remove(BOARD_GAMEOVER_CLASS);
 
-    // NOTE: ユーザー要求により、リセット時に履歴を消さない -> historyStack / redoStack の初期化を除去
-    // ただし、最初の初期化時は履歴が空なら初期状態を保存する（resetで何度もpushされるのを防ぐ）
-    // NextQueue 初期化
     generateInitialNextQueue();
-
-    // editingNextPuyos は nextQueue をコピーして初期化
     editingNextPuyos = copyNextQueue(nextQueue.slice(0, MAX_NEXT_PUYOS));
     currentEditColor = COLORS.EMPTY;
 
@@ -602,14 +789,10 @@ function initializeGame() {
         }
     }
 
-    // 最初のぷよを生成（generateNewPuyoは nextQueue を消費する）
-    // resetのたびに現在の currentPuyo を維持しない仕様にする（明示的に初期化）
-    // 初回ロードまたは操作ぷよが存在しない場合は生成
-    if (!currentPuyo) {
-        ensureNextQueueCapacity();
-        generateNewPuyo();
-    }
-    
+    currentPuyo = null;
+    ensureNextQueueCapacity();
+    generateNewPuyo();
+
     startPuyoDropLoop();
     updateUI();
 
@@ -650,7 +833,6 @@ function initializeGame() {
     checkMobileControlsVisibility();
     renderBoard();
 
-    // 初回のみ履歴に保存（リセットのたびに履歴を増やさない）
     if (!_initializedOnce) {
         saveState(false);
         _initializedOnce = true;
@@ -660,11 +842,16 @@ function initializeGame() {
 function generateNewPuyo() {
     if (gameState !== 'playing') return;
 
-    // nextQueue からペアを取得（consumeNextPairは queueIndex を進める）
-    ensureNextQueueCapacity();
-    const [sub, main] = consumeNextPair(); // returns [sub, main]
+    // 受け取っていたおじゃまがあるなら、次の操作ぷよ生成前に落とす
+    if (pendingOjama > 0) {
+        if (!applyPendingOjamaToBoard()) {
+            return;
+        }
+    }
 
-    // currentPuyo の mainColor/subColor の表記は既存仕様に合わせる
+    ensureNextQueueCapacity();
+    const [sub, main] = consumeNextPair();
+
     currentPuyo = {
         mainColor: main,
         subColor: sub,
@@ -674,14 +861,12 @@ function generateNewPuyo() {
     };
 
     const startingCoords = getCoordsFromState(currentPuyo);
-    const isOverlappingTarget = startingCoords.some(p => p.x === 2 && p.y === (HEIGHT - 3) && board[p.y][p.x] !== COLORS.EMPTY);
+    const isOverlappingTarget = startingCoords.some(
+        p => p.x === 2 && p.y === (HEIGHT - 3) && board[p.y][p.x] !== COLORS.EMPTY
+    );
 
     if (checkCollision(startingCoords) || isOverlappingTarget) {
-        gameState = 'gameover';
-        alert('ゲームオーバーです！');
-        clearInterval(dropTimer);
-        updateUI();
-        renderBoard();
+        triggerGameOver();
         return;
     }
 }
@@ -743,16 +928,14 @@ function getGhostFinalPositions() {
         }
     }
 
-    // 隠し行（上 HIDDEN_ROWS 行）を除外して返す
     return ghostPositions.filter(p => p.y < HEIGHT - HIDDEN_ROWS);
 }
 
-// 衝突判定（境界チェックを HIDDEN_ROWS と統一）
+// 衝突判定
 function checkCollision(coords) {
     for (const puyo of coords) {
-        if (puyo.x < 0 || puyo.x >= WIDTH || puyo.y < 0) return true;
-        // 上部 HIDDEN_ROWS 行（y >= HEIGHT - HIDDEN_ROWS）は board の占有判定をスキップ
-        if (puyo.y < HEIGHT - HIDDEN_ROWS && board[puyo.y][puyo.x] !== COLORS.EMPTY) return true;
+        if (puyo.x < 0 || puyo.x >= WIDTH || puyo.y < 0 || puyo.y > HEIGHT) return true;
+        if (puyo.y < HEIGHT && board[puyo.y][puyo.x] !== COLORS.EMPTY) return true;
     }
     return false;
 }
@@ -761,7 +944,11 @@ function checkCollision(coords) {
 function movePuyo(dx, dy, newRotation, shouldRender = true) {
     if (gameState !== 'playing' || !currentPuyo) return false;
     const { mainX, mainY, rotation } = currentPuyo;
-    const test = { mainX: mainX + dx, mainY: mainY + dy, rotation: newRotation !== undefined ? newRotation : rotation };
+    const test = {
+        mainX: mainX + dx,
+        mainY: mainY + dy,
+        rotation: newRotation !== undefined ? newRotation : rotation
+    };
     const testCoords = getCoordsFromState(test);
     if (!checkCollision(testCoords)) {
         currentPuyo.mainX = test.mainX;
@@ -853,12 +1040,12 @@ window.rotatePuyoCCW = function() {
 function hardDrop() {
     if (gameState !== 'playing' || !currentPuyo) return;
     clearInterval(dropTimer);
-    while (movePuyo(0, -1, undefined, false)) { /* drop until cannot */ }
+    while (movePuyo(0, -1, undefined, false)) { }
     renderBoard();
     lockPuyo();
 }
 
-// lockPuyo: 設置 -> gravity -> 上端行クリア -> 連鎖開始（設置直後の履歴保存は削除）
+// lockPuyo: 設置 -> gravity -> 上端行クリア -> 連鎖開始
 function lockPuyo() {
     if (gameState !== 'playing' || !currentPuyo) return;
     const coords = getPuyoCoords();
@@ -870,10 +1057,8 @@ function lockPuyo() {
 
     currentPuyo = null;
 
-    // 自由落下（設置後に重力を適用）
     gravity();
 
-    // 最上端行をクリア（既存仕様に合わせる）
     for (let x = 0; x < WIDTH; x++) {
         board[HEIGHT - 1][x] = COLORS.EMPTY;
     }
@@ -881,17 +1066,14 @@ function lockPuyo() {
     renderBoard();
     updateUI();
 
-    // NOTE: 設置直後の履歴保存は削除（B方式：連鎖終了時のみ保存）
-
-    // 連鎖判定へ
     gameState = 'chaining';
     chainCount = 0;
+    chainAttackScoreBuffer = 0;
     runChain();
 }
 
 // ---------- 連結検出（上部 HIDDEN_ROWS を除外） ----------
 function findConnectedPuyos() {
-    // 探索の対象は y = 0 .. (HEIGHT - HIDDEN_ROWS - 1)
     const MAX_SEARCH_Y = HEIGHT - HIDDEN_ROWS;
     let visited = Array(HEIGHT).fill(0).map(() => Array(WIDTH).fill(false));
     let groups = [];
@@ -950,65 +1132,88 @@ function clearGarbagePuyos(erasedCoords) {
     return clearedCount;
 }
 
+// スコア計算
+function calculateScore(groups, currentChain) {
+    let totalPuyos = 0;
+    let colorSet = new Set();
+    let bonusTotal = 0;
+
+    groups.forEach(({ group, color }) => {
+        totalPuyos += group.length;
+        colorSet.add(color);
+
+        const idx = Math.min(group.length, BONUS_TABLE.GROUP.length - 1);
+        bonusTotal += BONUS_TABLE.GROUP[idx];
+    });
+
+    // 1連鎖目は CHAIN[0] を使う
+    const chainIdx = Math.max(0, Math.min(currentChain - 1, BONUS_TABLE.CHAIN.length - 1));
+    bonusTotal += BONUS_TABLE.CHAIN[chainIdx];
+
+    const colorIdx = Math.min(colorSet.size, BONUS_TABLE.COLOR.length - 1);
+    bonusTotal += BONUS_TABLE.COLOR[colorIdx];
+
+    // A+B+C が 0 のときは 1 にする
+    const bonusMultiplier = (bonusTotal === 0) ? 1 : bonusTotal;
+
+    // X = 10 × 消したぷよの数
+    // score = X × (A + B + C)
+    return (10 * totalPuyos) * bonusMultiplier;
+}
+
 // 連鎖処理（async）
-// - 連鎖終了時に履歴を保存（saveState()）
 async function runChain() {
-    // reset abort flag for this run
     chainAbortFlag = false;
 
-    // 1) まず重力をかけて安定化
     gravity();
     renderBoard();
 
-    // 2) 連結を検出
     const groups = findConnectedPuyos();
 
     if (groups.length === 0) {
-        // 0連鎖時: 全消しボーナス
         if (checkBoardEmpty()) {
-            score += 3600;
+            score += ALL_CLEAR_SCORE_BONUS;
+            chainAttackScoreBuffer += ALL_CLEAR_SCORE_BONUS;
             updateUI();
         }
 
-        // 新仕様: ゲームオーバー判定は spawn チェックとは別に、Y=HEIGHT-3 の中央列で判定
         const gameOverLineY = HEIGHT - 3;
         const checkX = 2;
         const isGameOver = board[gameOverLineY][checkX] !== COLORS.EMPTY;
         if (isGameOver) {
-            gameState = 'gameover';
-            alert('ゲームオーバーです！');
-            clearInterval(dropTimer);
-            updateUI();
-            renderBoard();
+            triggerGameOver();
             return;
         }
 
-        // 操作可能に戻す
+        flushChainOjamaBuffer();
+
+        if (!applyPendingOjamaToBoard()) {
+            return;
+        }
+
         gameState = 'playing';
-        // NOTE: currentPuyo が null の場合 generateNewPuyo() が投入される。
-        // これにより Edit→Play 直後の Next1 が currentPuyo になる。
+
         if (!currentPuyo) {
             ensureNextQueueCapacity();
             generateNewPuyo();
         }
+
         startPuyoDropLoop();
         checkMobileControlsVisibility();
         renderBoard();
 
-        // 0連鎖も「1手の終了」なので、最終盤面を履歴として保存する
         saveState(true);
-
         return;
     }
 
-    // 3) 連鎖発生: 着地からの待ち時間
     await sleep(chainWaitTime);
     if (chainAbortFlag) return;
 
-    // 4) 消滅処理
     chainCount++;
-    let chainScore = calculateScore(groups, chainCount);
+    const chainScore = calculateScore(groups, chainCount);
     score += chainScore;
+
+    chainAttackScoreBuffer += chainScore;
 
     let erasedCoords = [];
     groups.forEach(({ group }) => {
@@ -1022,60 +1227,38 @@ async function runChain() {
     renderBoard();
     updateUI();
 
-    // 5) 消滅後の待機（重力待ち）
     await sleep(gravityWaitTime);
     if (chainAbortFlag) return;
 
-    // 6) 次段へ（重力・再判定）
     gravity();
     renderBoard();
 
     const nextGroups = findConnectedPuyos();
     if (nextGroups.length === 0) {
-        // 連鎖終了
         gameState = 'playing';
-        // currentPuyo が null の場合にのみ新規投入（これを守ることで履歴復元時の不整合を防ぐ）
+
+        flushChainOjamaBuffer();
+
+        if (!applyPendingOjamaToBoard()) {
+            return;
+        }
+
         if (!currentPuyo) {
             ensureNextQueueCapacity();
             generateNewPuyo();
         }
+
         startPuyoDropLoop();
         checkMobileControlsVisibility();
         renderBoard();
 
-        // 連鎖が終わった最終盤面を保存（ここで保存） — 1手 = 1履歴
         saveState(true);
     } else {
-        // 続ける（await して順序を保証）
         await runChain();
     }
 }
 
-// スコア計算
-function calculateScore(groups, currentChain) {
-    let totalPuyos = 0;
-    let colorSet = new Set();
-    let bonusTotal = 0;
-
-    groups.forEach(({ group, color }) => {
-        totalPuyos += group.length;
-        colorSet.add(color);
-        const idx = Math.min(group.length, BONUS_TABLE.GROUP.length - 1);
-        bonusTotal += BONUS_TABLE.GROUP[idx];
-    });
-
-    const chainIdx = Math.min(currentChain, BONUS_TABLE.CHAIN.length - 1);
-    bonusTotal += BONUS_TABLE.CHAIN[chainIdx];
-
-    const colorIdx = Math.min(colorSet.size, BONUS_TABLE.COLOR.length - 1);
-    bonusTotal += BONUS_TABLE.COLOR[colorIdx];
-
-    const finalBonus = Math.max(1, bonusTotal);
-    const totalScore = (10 * totalPuyos) * finalBonus;
-    return totalScore;
-}
-
-// 重力（各列を詰める）
+// ---------- 重力 ----------
 function simulateGravity(targetBoard) {
     for (let x = 0; x < WIDTH; x++) {
         let newCol = [];
@@ -1114,11 +1297,11 @@ function handleInput(event) {
             break;
         case 'z':
         case 'Z':
-            rotatePuyoCW();
+            window.rotatePuyoCW();
             break;
         case 'x':
         case 'X':
-            rotatePuyoCCW();
+            window.rotatePuyoCCW();
             break;
         case 'ArrowDown':
             clearInterval(dropTimer);
@@ -1145,7 +1328,6 @@ function renderEditNextPuyos() {
             ev.stopPropagation();
             if (gameState !== 'editing') return;
             if (editingNextPuyos.length > listIndex) {
-                // puyoIndex: 0 = main(下), 1 = sub(上)
                 editingNextPuyos[listIndex][puyoIndex] = currentEditColor;
                 nextEdited = true;
                 renderEditNextPuyos();
@@ -1154,20 +1336,17 @@ function renderEditNextPuyos() {
         return puyo;
     };
 
-    // ----- visible slots (NEXT1, NEXT2) -----
     visibleSlots.forEach((slot, idx) => {
         slot.innerHTML = '';
 
         if (editingNextPuyos.length > idx) {
-            // ペアは [sub, main]（index 0 = sub / 上、index 1 = main / 下）
             const [c_main, c_sub] = editingNextPuyos[idx];
-            
+
             slot.appendChild(createEditablePuyo(c_sub, idx, 1)); // 上
             slot.appendChild(createEditablePuyo(c_main, idx, 0)); // 下
         }
     });
 
-    // ----- full list -----
     listContainer.innerHTML = '';
     for (let i = NUM_VISIBLE_NEXT_PUYOS; i < MAX_NEXT_PUYOS; i++) {
         if (editingNextPuyos.length <= i) break;
@@ -1178,9 +1357,9 @@ function renderEditNextPuyos() {
         pairContainer.appendChild(countSpan);
         const puyoRow = document.createElement('div');
         puyoRow.className = 'next-puyo-row';
-        const [c_main, c_sub] = editingNextPuyos[i]; // fixed: [sub, main]
-        puyoRow.appendChild(createEditablePuyo(c_sub, i, 1)); // 上 (sub)
-        puyoRow.appendChild(createEditablePuyo(c_main, i, 0)); // 下 (main)
+        const [c_main, c_sub] = editingNextPuyos[i];
+        puyoRow.appendChild(createEditablePuyo(c_sub, i, 1));
+        puyoRow.appendChild(createEditablePuyo(c_main, i, 0));
         pairContainer.appendChild(puyoRow);
         listContainer.appendChild(pairContainer);
     }
@@ -1203,6 +1382,7 @@ function checkMobileControlsVisibility() {
 }
 
 let previousGameState = 'playing';
+
 window.toggleSettingMode = function() {
     const overlay = document.getElementById('setting-overlay');
     if (!overlay) return;
@@ -1223,9 +1403,9 @@ window.toggleMode = function() {
     const boardElement = document.getElementById('puyo-board');
 
     if (gameState === 'playing' || gameState === 'gameover') {
-        // -> editing
         clearInterval(dropTimer);
         gameState = 'editing';
+        document.body.classList.remove(BOARD_GAMEOVER_CLASS);
         if (infoPanel) infoPanel.classList.add('edit-mode-active');
         document.body.classList.add('edit-mode-active');
         if (modeToggleButton) modeToggleButton.textContent = 'play';
@@ -1235,18 +1415,14 @@ window.toggleMode = function() {
         renderEditNextPuyos();
         renderBoard();
     } else if (gameState === 'editing') {
-        // -> playing: ユーザー要求により、play に戻るときは Next1 を操作ぷよにしたい
         gameState = 'playing';
+        document.body.classList.remove(BOARD_GAMEOVER_CLASS);
         if (infoPanel) infoPanel.classList.remove('edit-mode-active');
         document.body.classList.remove('edit-mode-active');
         if (modeToggleButton) modeToggleButton.textContent = 'edit';
         checkMobileControlsVisibility();
         if (boardElement) boardElement.removeEventListener('click', handleBoardClickEditMode);
 
-        // ここで currentPuyo を Next1 に「差し替える」
-        // applyNextPuyos() が呼ばれて nextQueue が編集済みで queueIndex==0 の想定
-        // 安全に動かすため currentPuyo を null にして generateNewPuyo() に委ねる
-        // Nextを編集して applyNextPuyos() が押された時だけ更新
         if (nextEdited) {
             currentPuyo = null;
             ensureNextQueueCapacity();
@@ -1265,6 +1441,7 @@ window.updateGravityWait = function(value) {
     const display = document.getElementById('gravity-wait-value');
     if (display) display.textContent = gravityWaitTime + 'ms';
 };
+
 window.updateChainWait = function(value) {
     chainWaitTime = parseInt(value);
     const display = document.getElementById('chain-wait-value');
@@ -1293,8 +1470,14 @@ window.resetGame = function() {
     initializeGame();
 };
 
+// 連戦用の公開フック
+window.prepareForRematch = function() {
+    window.resetGame();
+};
+window.requestRematch = window.prepareForRematch;
+window.resetForRematch = window.prepareForRematch;
+
 // ---------- ユーティリティ / その他 ----------
-// getDropY（指定列の落下先 y を返す）: y が見えない領域に行くと HEIGHT-1 を返さないよう調整
 function getDropY(x, startY = 0) {
     if (x < 0 || x >= WIDTH) return -1;
     let y = Math.max(0, startY);
@@ -1325,8 +1508,8 @@ function getDropY(x, startY = 0) {
                 const newMainY = mainY + 1;
                 const newSubY = subY + 1;
 
-                // 範囲超過判定（HEIGHT を基準）
-                if (newMainY >= HEIGHT + 1 || newSubY >= HEIGHT + 1) {
+                // main は 13 まで、sub は 14 まで許可
+                if (newMainY >= HEIGHT || newSubY > HEIGHT) {
                     alert('これ以上上に移動できません。');
                     return;
                 }
@@ -1337,7 +1520,7 @@ function getDropY(x, startY = 0) {
                 if (newMainY < HEIGHT - HIDDEN_ROWS) {
                     if (board[newMainY][mainX] !== COLORS.EMPTY) canMove = false;
                 }
-                if (newSubY < HEIGHT - HIDDEN_ROWS) {
+                if (newSubY < HEIGHT && newSubY < HEIGHT - HIDDEN_ROWS) {
                     if (board[newSubY][subX] !== COLORS.EMPTY) canMove = false;
                 }
 
@@ -1351,21 +1534,32 @@ function getDropY(x, startY = 0) {
             }
         };
 
-        // キーバインド: u キーで発火（既存の undo のショートカットと競合するので注意）
-        document.addEventListener('keydown', function(e) {
-            try {
-                if (typeof gameState !== 'undefined' && gameState === 'playing' && e.key === 'u') {
-                    window.raisePuyoOneRow();
-                }
-            } catch (err) {
-                console.error('キーイベントエラー:', err);
-            }
-        });
-
+        // キーバインドは外して、Undo の U と衝突しないようにする
+        // 1段上げはボタンクリックのみ使用
     } catch (e) {
         console.error('raisePuyoOneRow init error:', e);
     }
 })();
+
+// オンライン・履歴・おじゃま同期用の公開API
+window.getNextQueue = function() {
+    return copyNextQueue(nextQueue);
+};
+
+window.setNextQueue = function(newQueue) {
+    if (!Array.isArray(newQueue)) return;
+    nextQueue = JSON.parse(JSON.stringify(newQueue));
+    queueIndex = 0;
+    ensureNextQueueCapacity();
+    renderBoard();
+};
+
+window.getPendingOjama = function() {
+    return pendingOjama;
+};
+
+window.applyPendingOjamaToBoard = applyPendingOjamaToBoard;
+window.triggerGameOver = triggerGameOver;
 
 // 初期化
 document.addEventListener('DOMContentLoaded', () => {
